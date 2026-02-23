@@ -1,0 +1,593 @@
+{% extends "client/_base.html" %}
+{% set current_step = 5 %}
+
+{% block title %}Submission Received{% endblock %}
+
+{% block extra_css %}
+<style>
+
+  /* ── Animated success circle ─────────────────────────────── */
+  .success-ring-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  .success-ring {
+    position: relative;
+    width: 72px;
+    height: 72px;
+  }
+  .success-ring svg {
+    position: absolute;
+    inset: 0;
+  }
+  /* Circle stroke animation */
+  .ring-circle {
+    stroke-dasharray: 201;   /* circumference of r=32 circle */
+    stroke-dashoffset: 201;
+    animation: draw-circle 0.55s ease-out 0.1s forwards;
+  }
+  @keyframes draw-circle {
+    to { stroke-dashoffset: 0; }
+  }
+  /* Check mark animation */
+  .ring-check {
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: draw-check 0.35s ease-out 0.65s forwards;
+  }
+  @keyframes draw-check {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* ── Rejected / status ring ──────────────────────────────── */
+  .status-rejected .ring-circle { stroke: var(--red); animation: draw-circle 0.55s ease-out 0.1s forwards; }
+  .status-rejected .ring-check  { display: none; }
+  .status-rejected .ring-cross  { stroke-dasharray: 50; stroke-dashoffset: 50;
+                                   animation: draw-check 0.35s ease-out 0.65s forwards; }
+
+  /* ── Heading ─────────────────────────────────────────────── */
+  .confirm-heading {
+    text-align: center;
+    margin-bottom: 0.35rem;
+  }
+  .confirm-heading h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .confirm-heading .tagline {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ── Status banner (approved / rejected) ─────────────────── */
+  .status-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.8rem 1rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin: 1.25rem 0;
+  }
+  .status-banner.approved {
+    background: var(--green-bg);
+    border: 1px solid var(--green);
+    color: var(--green);
+  }
+  .status-banner.rejected {
+    background: rgba(204,41,41,0.07);
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+  .status-banner svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+
+  /* ── Reference ID card ───────────────────────────────────── */
+  .ref-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem 1.1rem;
+    margin: 1.25rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .ref-card-left {}
+  .ref-card-label {
+    font-family: monospace;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+  .ref-card-id {
+    font-family: monospace;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--blue);
+  }
+  .ref-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.3rem 0.65rem;
+    font-family: monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .ref-copy-btn:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+  }
+  .ref-copy-btn.copied {
+    color: var(--green);
+    border-color: var(--green);
+    background: var(--green-bg);
+  }
+  .ref-copy-btn svg { width: 11px; height: 11px; }
+
+  /* ── Summary stats ───────────────────────────────────────── */
+  .summary-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.65rem 0.5rem;
+    text-align: center;
+  }
+  .stat-chip-number {
+    font-family: monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.2rem;
+  }
+  .stat-chip-label {
+    font-family: monospace;
+    font-size: 0.56rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    line-height: 1.3;
+  }
+
+  /* ── Section divider ─────────────────────────────────────── */
+  .conf-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.25rem 0;
+  }
+
+  /* ── What happens next ───────────────────────────────────── */
+  .next-steps-label {
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    margin-bottom: 0.9rem;
+  }
+  .next-steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .next-step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding-bottom: 1.1rem;
+    position: relative;
+  }
+  /* Vertical connector line */
+  .next-step-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 26px;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+  .next-step-dot {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .next-step-dot.active {
+    background: var(--blue-bg);
+    border-color: var(--blue);
+    color: var(--blue);
+  }
+  .next-step-content {}
+  .next-step-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+    padding-top: 3px;
+  }
+  .next-step-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ── Contact row ─────────────────────────────────────────── */
+  .contact-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .contact-field {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.78rem;
+  }
+  .contact-field-label {
+    font-family: monospace;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    width: 48px;
+    flex-shrink: 0;
+  }
+  .contact-field-value {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ── Portal link ─────────────────────────────────────────── */
+  .portal-link-section {
+    margin-top: 0.5rem;
+  }
+  .portal-link-section .section-label {
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+  }
+  .portal-link-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.55rem 0.75rem;
+  }
+  .portal-link-text {
+    flex: 1;
+    font-family: monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .portal-link-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 3px 9px;
+    font-family: monospace;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .portal-link-copy-btn:hover { color: var(--text); border-color: var(--text-muted); }
+  .portal-link-copy-btn.copied { color: var(--green); border-color: var(--green); }
+  .portal-link-note {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.45rem;
+    line-height: 1.4;
+  }
+
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+{# Determine status state #}
+{% set is_approved = client.status.value == 'approved' %}
+{% set is_rejected = client.status.value == 'rejected' %}
+
+<div class="portal-card">
+
+  {# ── Animated success / status icon ─────────────────────── #}
+  <div class="success-ring-wrap">
+    <div class="success-ring {% if is_rejected %}status-rejected{% endif %}">
+      <svg viewBox="0 0 72 72" fill="none">
+
+        {# Background circle #}
+        <circle cx="36" cy="36" r="32"
+                stroke="var(--border)" stroke-width="2" fill="none" />
+
+        {# Animated colour circle #}
+        <circle class="ring-circle" cx="36" cy="36" r="32"
+                stroke="{% if is_rejected %}var(--red){% else %}var(--green){% endif %}"
+                stroke-width="2.5" fill="none"
+                transform="rotate(-90 36 36)" />
+
+        {% if is_rejected %}
+        {# Cross marks for rejected #}
+        <line class="ring-check ring-cross" x1="24" y1="24" x2="48" y2="48"
+              stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"/>
+        <line class="ring-check ring-cross" x1="48" y1="24" x2="24" y2="48"
+              stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"/>
+        {% else %}
+        {# Checkmark #}
+        <polyline class="ring-check" points="22,38 32,48 50,28"
+                  stroke="{% if is_approved %}var(--green){% else %}var(--green){% endif %}"
+                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                  fill="none"/>
+        {% endif %}
+      </svg>
+    </div>
+  </div>
+
+  {# ── Heading ──────────────────────────────────────────────── #}
+  <div class="confirm-heading">
+    {% set first_name = client.full_name.split(' ')[0] %}
+    {% if is_rejected %}
+    <h2>We're sorry, {{ first_name }}.</h2>
+    <p class="tagline">Unfortunately, we are unable to proceed with your matter at this time.</p>
+    {% elif is_approved %}
+    <h2>You're approved, {{ first_name }}!</h2>
+    <p class="tagline">Your matter has been reviewed and approved. Your lawyer will be in touch shortly.</p>
+    {% else %}
+    <h2>Thank you, {{ first_name }}!</h2>
+    <p class="tagline">Your intake has been submitted. We will review your information and be in touch soon.</p>
+    {% endif %}
+  </div>
+
+  {# ── Status banners (only for terminal states) ────────────── #}
+  {% if is_approved %}
+  <div class="status-banner approved">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span>Your file has been <strong>approved</strong>. Your lawyer will contact you to discuss next steps and engagement terms.</span>
+  </div>
+  {% elif is_rejected %}
+  <div class="status-banner rejected">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span>Your matter has been <strong>declined</strong>. This is often due to a conflict of interest or practice area limitations. You are free to seek representation elsewhere.</span>
+  </div>
+  {% endif %}
+
+  {# ── Reference ID ─────────────────────────────────────────── #}
+  <div class="ref-card">
+    <div class="ref-card-left">
+      <div class="ref-card-label">Reference Number</div>
+      <div class="ref-card-id" id="ref-id-display">{{ client.reference_id }}</div>
+    </div>
+    <button class="ref-copy-btn" id="ref-copy-btn"
+            onclick="copyRefId()" title="Copy reference number">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+      Copy
+    </button>
+  </div>
+
+  {# ── Submission summary ───────────────────────────────────── #}
+  <div class="summary-stats">
+    <div class="stat-chip">
+      <div class="stat-chip-number">{{ client.passports | length }}</div>
+      <div class="stat-chip-label">Passport{{ 's' if client.passports | length != 1 }}</div>
+    </div>
+    <div class="stat-chip">
+      {% set confirmed_stmts = client.statements | selectattr('client_edited_text') | list %}
+      <div class="stat-chip-number">{{ confirmed_stmts | length }}</div>
+      <div class="stat-chip-label">Statement{{ 's' if confirmed_stmts | length != 1 }}</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-number">{{ client.documents | length }}</div>
+      <div class="stat-chip-label">Document{{ 's' if client.documents | length != 1 }}</div>
+    </div>
+  </div>
+
+  <div class="conf-divider"></div>
+
+  {# ── What happens next ────────────────────────────────────── #}
+  {% if not is_rejected %}
+  <div class="next-steps-label">What happens next</div>
+  <div class="next-steps-list">
+
+    <div class="next-step-item">
+      <div class="next-step-dot active">1</div>
+      <div class="next-step-content">
+        <div class="next-step-title">File under review</div>
+        <div class="next-step-desc">
+          Your documents and statement are being reviewed by our team. A conflict
+          check is performed automatically.
+        </div>
+      </div>
+    </div>
+
+    <div class="next-step-item">
+      <div class="next-step-dot">2</div>
+      <div class="next-step-content">
+        <div class="next-step-title">Lawyer contact</div>
+        <div class="next-step-desc">
+          A lawyer will reach out to you at <strong>{{ client.phone }}</strong>
+          {% if client.channel.value == 'whatsapp' %}via WhatsApp{% else %}or <strong>{{ client.email }}</strong>{% endif %}
+          within 1–2 business days.
+        </div>
+      </div>
+    </div>
+
+    <div class="next-step-item">
+      <div class="next-step-dot">3</div>
+      <div class="next-step-content">
+        <div class="next-step-title">Engagement letter</div>
+        <div class="next-step-desc">
+          Once approved, you will receive an engagement letter for electronic
+          signature before work begins.
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="conf-divider"></div>
+  {% endif %}
+
+  {# ── Contact details ──────────────────────────────────────── #}
+  <div class="contact-row">
+    <div class="contact-field">
+      <span class="contact-field-label">Name</span>
+      <span class="contact-field-value">{{ client.full_name }}</span>
+    </div>
+    <div class="contact-field">
+      <span class="contact-field-label">Email</span>
+      <span class="contact-field-value">{{ client.email }}</span>
+    </div>
+    <div class="contact-field">
+      <span class="contact-field-label">Phone</span>
+      <span class="contact-field-value">{{ client.phone }}</span>
+    </div>
+    <div class="contact-field">
+      <span class="contact-field-label">Channel</span>
+      <span class="contact-field-value" style="text-transform:capitalize;">{{ client.channel.value }}</span>
+    </div>
+  </div>
+
+  {# ── Portal link ──────────────────────────────────────────── #}
+  <div class="portal-link-section">
+    <div class="section-label">Your portal link</div>
+    <div class="portal-link-box">
+      <span class="portal-link-text" id="portal-link-text">Loading…</span>
+      <button class="portal-link-copy-btn" id="link-copy-btn" onclick="copyPortalLink()">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        Copy
+      </button>
+    </div>
+    <p class="portal-link-note">
+      Save this link — it lets you return to your portal without a password. It expires in 30 days.
+    </p>
+  </div>
+
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+  const TOKEN  = "{{ token }}";
+  const REF_ID = "{{ client.reference_id }}";
+
+  /* ── Build full portal link ─────────────────────────────── */
+  const portalPath = `/client/${REF_ID}?token=${TOKEN}`;
+  const portalFull = window.location.origin + portalPath;
+
+  document.getElementById("portal-link-text").textContent = portalFull;
+
+  /* ── Copy reference ID ──────────────────────────────────── */
+  function copyRefId() {
+    navigator.clipboard.writeText(REF_ID).then(() => {
+      const btn = document.getElementById("ref-copy-btn");
+      btn.classList.add("copied");
+      btn.textContent = "Copied!";
+      setTimeout(() => {
+        btn.classList.remove("copied");
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg> Copy`;
+      }, 2500);
+    }).catch(() => {
+      /* Fallback for browsers without clipboard API */
+      const el = document.createElement("textarea");
+      el.value = REF_ID;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    });
+  }
+
+  /* ── Copy portal link ───────────────────────────────────── */
+  function copyPortalLink() {
+    navigator.clipboard.writeText(portalFull).then(() => {
+      const btn = document.getElementById("link-copy-btn");
+      btn.classList.add("copied");
+      btn.textContent = "Copied!";
+      setTimeout(() => {
+        btn.classList.remove("copied");
+        btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2v1"/>
+        </svg> Copy`;
+      }, 2500);
+    }).catch(() => {
+      const el = document.createElement("textarea");
+      el.value = portalFull;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    });
+  }
+</script>
+{% endblock %}

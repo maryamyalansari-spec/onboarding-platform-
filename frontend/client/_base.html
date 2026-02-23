@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ITIFAQ{% endblock %} — Client Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/components.css" />
+
+  <style>
+    /* ── Client portal shell ──────────────────────────────── */
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top bar */
+    .portal-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-sidebar);
+      flex-shrink: 0;
+    }
+
+    .portal-logo {
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .portal-topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .topbar-clock {
+      font-family: monospace;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+    }
+
+    .theme-toggle-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.28rem 0.65rem;
+      font-family: monospace;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .theme-toggle-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+    /* Main content area */
+    .portal-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem 3rem;
+    }
+
+    /* Card container for each step */
+    .portal-card {
+      width: 100%;
+      max-width: 540px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2rem 2rem;
+    }
+
+    /* Reference pill shown after step 1 */
+    .ref-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--blue-bg);
+      border: 1px solid var(--blue);
+      border-radius: 3px;
+      padding: 0.3rem 0.75rem;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--blue);
+      letter-spacing: 0.08em;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Step progress bar */
+    .step-progress-wrap {
+      width: 100%;
+      max-width: 540px;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Error banner */
+    .error-banner {
+      display: none;
+      background: var(--red-bg);
+      border: 1px solid var(--red);
+      border-radius: 3px;
+      padding: 0.65rem 0.85rem;
+      color: var(--red);
+      font-size: 0.82rem;
+      margin-bottom: 1rem;
+    }
+    .error-banner.visible { display: block; }
+
+    /* Success banner */
+    .success-banner {
+      display: none;
+      background: var(--green-bg);
+      border: 1px solid var(--green);
+      border-radius: 3px;
+      padding: 0.65rem 0.85rem;
+      color: var(--green);
+      font-size: 0.82rem;
+      margin-bottom: 1rem;
+    }
+    .success-banner.visible { display: block; }
+  </style>
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+  <!-- Topbar -->
+  <header class="portal-topbar">
+    <span class="portal-logo">ITIFAQ</span>
+    <div class="portal-topbar-right">
+      <span class="topbar-clock" id="clock"></span>
+      <button class="theme-toggle-btn" data-theme-btn onclick="toggleTheme()">Light</button>
+    </div>
+  </header>
+
+  <!-- Step progress indicator -->
+  {% if current_step is defined %}
+  <div class="portal-body" style="padding-bottom:0;padding-top:2rem">
+    <div class="step-progress-wrap">
+      <div class="step-progress">
+        {% for step_num, step_label in [
+            (1, 'Contact'),
+            (2, 'Documents'),
+            (3, 'Statement'),
+            (4, 'Upload'),
+          ] %}
+        <div class="step-item {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
+          <div class="step-circle">
+            {% if current_step > step_num %}✓{% else %}{{ step_num }}{% endif %}
+          </div>
+          <span class="step-label">{{ step_label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Page content -->
+  <div class="portal-body" style="padding-top: {% if current_step is defined %}1rem{% else %}2.5rem{% endif %}">
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="/static/js/theme.js"></script>
+  <script>
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      const d = now.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+      const t = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      const el = document.getElementById('clock');
+      if (el) el.textContent = `${d}  ${t}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+  {% block extra_js %}{% endblock %}
+
+</body>
+</html>

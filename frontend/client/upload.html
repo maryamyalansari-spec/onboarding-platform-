@@ -1,0 +1,890 @@
+{% extends "client/_base.html" %}
+{% set current_step = 2 %}
+
+{% block title %}Upload Documents{% endblock %}
+
+{% block extra_css %}
+<style>
+
+  /* ── Page layout ──────────────────────────────────────────── */
+  .portal-card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+  }
+  .portal-card .subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1.75rem;
+    line-height: 1.5;
+  }
+
+  /* ── Section divider ──────────────────────────────────────── */
+  .upload-section {
+    margin-bottom: 1.75rem;
+  }
+  .upload-section:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .upload-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .upload-section-title {
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+  }
+
+  .upload-section-badge {
+    font-family: monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 1px 7px;
+    border-radius: 2px;
+  }
+
+  /* ── Drop zone ────────────────────────────────────────────── */
+  .drop-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 4px;
+    padding: 1.75rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+
+  .drop-zone:hover,
+  .drop-zone.drag-over {
+    border-color: var(--blue);
+    background: var(--blue-bg);
+  }
+
+  .drop-zone.has-file {
+    border-color: var(--green);
+    border-style: solid;
+    background: var(--green-bg);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-zone-icon {
+    width: 32px;
+    height: 32px;
+    margin: 0 auto 0.6rem;
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  .drop-zone-text {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    pointer-events: none;
+    margin-bottom: 0.2rem;
+  }
+
+  .drop-zone-text strong {
+    color: var(--text);
+  }
+
+  .drop-zone-hint {
+    font-family: monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  /* ── File preview card ────────────────────────────────────── */
+  .preview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+  }
+
+  .preview-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+
+  .preview-card.uploading {
+    opacity: 0.7;
+  }
+
+  .preview-card.error {
+    border-color: var(--red);
+    background: var(--red-bg);
+  }
+
+  .preview-thumb-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .preview-thumb-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .preview-thumb-wrap .pdf-icon {
+    font-size: 1.4rem;
+    opacity: 0.5;
+    line-height: 1;
+  }
+
+  .preview-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .preview-filename {
+    font-size: 0.8rem;
+    font-weight: 500;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .preview-status {
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 1px;
+  }
+
+  .preview-status.uploading { color: var(--blue); }
+  .preview-status.done      { color: var(--green); }
+  .preview-status.error     { color: var(--red); }
+
+  .preview-remove {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.1rem 0.25rem;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.15s;
+    display: none;
+  }
+  .preview-remove:hover { color: var(--red); }
+  .preview-card.done .preview-remove { display: block; }
+
+  /* ── Passport numbered section ────────────────────────────── */
+  .passport-entry {
+    margin-bottom: 0.75rem;
+  }
+
+  .passport-entry-label {
+    font-family: monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+  }
+
+  /* ── Add Another Passport ─────────────────────────────────── */
+  .add-passport-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: transparent;
+    border: 1.5px dashed var(--border);
+    border-radius: 4px;
+    padding: 0.6rem 1rem;
+    width: 100%;
+    color: var(--text-muted);
+    font-family: monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    margin-top: 0.5rem;
+  }
+  .add-passport-btn:hover {
+    border-color: var(--text-muted);
+    color: var(--text);
+  }
+  .add-passport-btn svg {
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
+
+  /* ── Photo quality note ───────────────────────────────────── */
+  .photo-note {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    padding: 0.75rem 0.85rem;
+    background: var(--blue-bg);
+    border: 1px solid rgba(41, 98, 204, 0.25);
+    border-radius: 3px;
+    margin: 1.5rem 0;
+  }
+
+  .photo-note-icon {
+    flex-shrink: 0;
+    opacity: 0.7;
+    margin-top: 1px;
+  }
+
+  .photo-note-text {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .photo-note-text strong {
+    color: var(--text);
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  /* ── Section rule ─────────────────────────────────────────── */
+  .section-rule {
+    height: 1px;
+    background: var(--border);
+    margin: 1.75rem 0;
+  }
+
+  /* ── Continue button ──────────────────────────────────────── */
+  .btn-continue-row {
+    margin-top: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .btn-continue {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .btn-continue:hover:not(:disabled) { opacity: 0.85; }
+  .btn-continue:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .skip-note {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  /* ── Error banner ─────────────────────────────────────────── */
+  .error-banner {
+    display: none;
+    background: var(--red-bg);
+    border: 1px solid var(--red);
+    border-radius: 3px;
+    padding: 0.65rem 0.85rem;
+    color: var(--red);
+    font-size: 0.82rem;
+    margin-top: 1rem;
+  }
+  .error-banner.visible { display: block; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- Data passed from Flask -->
+<script>
+  const CLIENT_REFERENCE = {{ client.reference_id | tojson }};
+  const CLIENT_ID        = {{ client.client_id | tojson }};
+  const PORTAL_TOKEN     = {{ token | tojson }};
+  const UPLOAD_URL_PASSPORT   = `/client/upload/passport?token=${PORTAL_TOKEN}`;
+  const UPLOAD_URL_EMIRATES   = `/client/upload/emirates-id?token=${PORTAL_TOKEN}`;
+  const DELETE_URL_PASSPORT   = (id) => `/client/upload/passport/${id}?token=${PORTAL_TOKEN}`;
+  const DELETE_URL_EMIRATES   = (id) => `/api/documents/${id}?token=${PORTAL_TOKEN}`;
+  const COMPLETE_URL          = `/client/upload/complete?token=${PORTAL_TOKEN}`;
+</script>
+
+<div class="portal-card">
+
+  <h2>Identity Documents</h2>
+  <p class="subtitle">
+    Please upload a clear photo of your passport. If you hold multiple passports,
+    you can add them all. A UAE Emirates ID is optional but helpful.
+  </p>
+
+  <!-- ── Passport section ─────────────────────────────────── -->
+  <div class="upload-section">
+    <div class="upload-section-header">
+      <span class="upload-section-title">Passport</span>
+      <span class="upload-section-badge badge badge-orange" id="passportRequiredBadge">Required</span>
+    </div>
+
+    <!-- Dynamic passport slots injected here -->
+    <div id="passportSlots"></div>
+
+    <!-- Add Another Passport button (shown after first successful upload) -->
+    <button class="add-passport-btn" id="addPassportBtn" style="display:none" onclick="addPassportSlot()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="8" cy="8" r="7"/>
+        <path d="M8 5v6M5 8h6"/>
+      </svg>
+      Add Another Passport
+    </button>
+  </div>
+
+  <!-- ── Photo quality note ───────────────────────────────── -->
+  <div class="photo-note">
+    <svg class="photo-note-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="8" cy="8" r="7"/>
+      <path d="M8 7v5"/>
+      <circle cx="8" cy="5" r="0.5" fill="currentColor"/>
+    </svg>
+    <div class="photo-note-text">
+      <strong>Tips for a clear photo</strong>
+      Place the passport on a flat, dark surface in good natural light. Make sure all four corners are visible and there is no glare or reflection over the photo page. A sharp, well-lit photo speeds up processing significantly.
+    </div>
+  </div>
+
+  <!-- ── Section divider ──────────────────────────────────── -->
+  <div class="section-rule"></div>
+
+  <!-- ── Emirates ID section ──────────────────────────────── -->
+  <div class="upload-section">
+    <div class="upload-section-header">
+      <span class="upload-section-title">Emirates ID</span>
+      <span class="upload-section-badge badge badge-muted">Optional</span>
+    </div>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.5">
+      If you have a UAE Emirates ID, uploading it here helps speed up verification.
+    </p>
+
+    <!-- Emirates ID drop zone -->
+    <div class="passport-entry" id="emiratesSlot">
+      <div class="drop-zone" id="emiratesDropZone"
+           onclick="triggerFileInput('emiratesInput')"
+           ondragover="handleDragOver(event, 'emiratesDropZone')"
+           ondragleave="handleDragLeave('emiratesDropZone')"
+           ondrop="handleDrop(event, 'emiratesDropZone', 'emirates', null)">
+        <input type="file" id="emiratesInput" accept="image/*,.pdf"
+               onchange="handleFileSelected(this, 'emirates', null)"
+               style="display:none" />
+        <svg class="drop-zone-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="4" y="8" width="24" height="16" rx="2"/>
+          <circle cx="12" cy="16" r="3"/>
+          <path d="M28 24l-7-7-4 4-3-3-10 9"/>
+        </svg>
+        <p class="drop-zone-text"><strong>Click to upload</strong> or drag and drop</p>
+        <p class="drop-zone-hint">JPG, PNG or PDF · Max 10 MB</p>
+      </div>
+      <div class="preview-list" id="emiratesPreview"></div>
+    </div>
+  </div>
+
+  <!-- ── Error banner ─────────────────────────────────────── -->
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- ── Continue ─────────────────────────────────────────── -->
+  <div class="btn-continue-row">
+    <button class="btn-continue" id="continueBtn" onclick="handleContinue()" disabled>
+      Continue to Statement
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 3l5 5-5 5"/>
+      </svg>
+    </button>
+    <p class="skip-note">At least one passport is required to continue.</p>
+  </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+// ════════════════════════════════════════════════════════════
+//  State
+// ════════════════════════════════════════════════════════════
+
+// Map: slotId → { passportId: str|null, uploaded: bool }
+const passportSlots = {};
+let emiratesUploadedId = null;
+let passportCount = 0;  // total slots created
+let activeUploads = 0;  // in-flight requests
+
+// ════════════════════════════════════════════════════════════
+//  Initialise
+// ════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Add the first passport slot
+  addPassportSlot();
+
+  // Restore any already-uploaded passports (returning client)
+  try {
+    const res  = await fetch(`/client/upload/passports?token=${PORTAL_TOKEN}`);
+    const data = await res.json();
+    if (data.success && data.data.passports.length) {
+      // Clear the empty first slot and rebuild from existing uploads
+      document.getElementById('passportSlots').innerHTML = '';
+      passportCount = 0;
+      for (const p of data.data.passports) {
+        const slotId = addPassportSlot();
+        markSlotUploaded(slotId, p.passport_id, `Passport ${p.passport_number || '(processing)'}`, null, true);
+      }
+    }
+    if (data.success && data.data.emirates_id) {
+      const eid = data.data.emirates_id;
+      emiratesUploadedId = eid.id_record_id;
+      renderPreviewCard(
+        'emiratesPreview',
+        'emirates',
+        null,
+        eid.id_number ? `Emirates ID · ${eid.id_number}` : 'Emirates ID uploaded',
+        eid.id_record_id,
+        null,
+        true
+      );
+      document.getElementById('emiratesDropZone').classList.add('has-file');
+    }
+  } catch { /* fresh client, no prior uploads */ }
+});
+
+// ════════════════════════════════════════════════════════════
+//  Passport slots
+// ════════════════════════════════════════════════════════════
+
+function addPassportSlot() {
+  passportCount++;
+  const slotId  = `passport-${passportCount}`;
+  const inputId = `passportInput-${passportCount}`;
+  const zoneId  = `passportZone-${passportCount}`;
+
+  passportSlots[slotId] = { passportId: null, uploaded: false };
+
+  const labelNum = passportCount === 1 ? 'Passport' : `Passport ${passportCount}`;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'passport-entry';
+  wrapper.id = slotId;
+  wrapper.innerHTML = `
+    <div class="passport-entry-label">${labelNum}</div>
+    <div class="drop-zone" id="${zoneId}"
+         onclick="triggerFileInput('${inputId}')"
+         ondragover="handleDragOver(event, '${zoneId}')"
+         ondragleave="handleDragLeave('${zoneId}')"
+         ondrop="handleDrop(event, '${zoneId}', 'passport', '${slotId}')">
+      <input type="file" id="${inputId}" accept="image/*,.pdf"
+             onchange="handleFileSelected(this, 'passport', '${slotId}')"
+             style="display:none" />
+      <svg class="drop-zone-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="2" width="20" height="28" rx="2"/>
+        <rect x="8" y="6" width="5" height="7" rx="1"/>
+        <path d="M8 18h14M8 22h10"/>
+        <circle cx="27" cy="27" r="5"/>
+        <path d="M27 24v3l2 2"/>
+      </svg>
+      <p class="drop-zone-text"><strong>Click to upload</strong> or drag and drop</p>
+      <p class="drop-zone-hint">JPG, PNG or PDF · Max 10 MB</p>
+    </div>
+    <div class="preview-list" id="preview-${slotId}"></div>
+  `;
+
+  document.getElementById('passportSlots').appendChild(wrapper);
+  return slotId;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Drag & drop handlers
+// ════════════════════════════════════════════════════════════
+
+function triggerFileInput(inputId) {
+  document.getElementById(inputId)?.click();
+}
+
+function handleDragOver(e, zoneId) {
+  e.preventDefault();
+  document.getElementById(zoneId)?.classList.add('drag-over');
+}
+
+function handleDragLeave(zoneId) {
+  document.getElementById(zoneId)?.classList.remove('drag-over');
+}
+
+function handleDrop(e, zoneId, type, slotId) {
+  e.preventDefault();
+  document.getElementById(zoneId)?.classList.remove('drag-over');
+  const file = e.dataTransfer?.files?.[0];
+  if (file) processFile(file, type, slotId);
+}
+
+function handleFileSelected(input, type, slotId) {
+  const file = input?.files?.[0];
+  if (file) processFile(file, type, slotId);
+  if (input) input.value = '';  // reset so same file can be re-selected
+}
+
+// ════════════════════════════════════════════════════════════
+//  File processing and upload
+// ════════════════════════════════════════════════════════════
+
+function processFile(file, type, slotId) {
+  // Basic validation
+  const MAX = 10 * 1024 * 1024;
+  if (file.size > MAX) {
+    showError(`${file.name} is too large. Maximum size is 10 MB.`);
+    return;
+  }
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['jpg','jpeg','png','pdf'].includes(ext)) {
+    showError('Please upload a JPG, PNG, or PDF file.');
+    return;
+  }
+
+  if (type === 'passport') {
+    uploadPassport(file, slotId);
+  } else {
+    uploadEmirates(file);
+  }
+}
+
+// ── Passport upload ─────────────────────────────────────
+async function uploadPassport(file, slotId) {
+  const previewListId = `preview-${slotId}`;
+  const zoneId        = `passportZone-${slotId}`;
+  const cardId        = `uploading-${slotId}`;
+
+  // Show uploading card
+  renderPreviewCard(previewListId, 'passport', slotId, file.name, null, file, false, cardId);
+  document.getElementById(zoneId)?.classList.add('has-file');
+  activeUploads++;
+  updateContinueBtn();
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res  = await fetch(UPLOAD_URL_PASSPORT, { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Upload failed.');
+    }
+
+    const passportId = data.data.passport_id;
+    passportSlots[slotId].passportId = passportId;
+    passportSlots[slotId].uploaded   = true;
+
+    // Update card to done state
+    updatePreviewCardDone(cardId, passportId, 'passport');
+
+    // Show "Add Another Passport" after first success
+    document.getElementById('addPassportBtn').style.display = 'flex';
+
+    // Mark required badge as satisfied
+    document.getElementById('passportRequiredBadge').className =
+      'upload-section-badge badge badge-green';
+    document.getElementById('passportRequiredBadge').textContent = 'Uploaded';
+
+    clearError();
+
+  } catch (err) {
+    document.getElementById(zoneId)?.classList.remove('has-file');
+    markPreviewCardError(cardId, err.message || 'Upload failed. Please try again.');
+    passportSlots[slotId].uploaded = false;
+  } finally {
+    activeUploads--;
+    updateContinueBtn();
+  }
+}
+
+// ── Emirates ID upload ──────────────────────────────────
+async function uploadEmirates(file) {
+  const cardId = 'uploading-emirates';
+  renderPreviewCard('emiratesPreview', 'emirates', null, file.name, null, file, false, cardId);
+  document.getElementById('emiratesDropZone')?.classList.add('has-file');
+  activeUploads++;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res  = await fetch(UPLOAD_URL_EMIRATES, { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) throw new Error(data.error || 'Upload failed.');
+
+    emiratesUploadedId = data.data.id_record_id;
+    updatePreviewCardDone(cardId, emiratesUploadedId, 'emirates');
+    clearError();
+
+  } catch (err) {
+    document.getElementById('emiratesDropZone')?.classList.remove('has-file');
+    markPreviewCardError(cardId, err.message || 'Upload failed. Please try again.');
+    emiratesUploadedId = null;
+  } finally {
+    activeUploads--;
+    updateContinueBtn();
+  }
+}
+
+// ── Delete passport ─────────────────────────────────────
+async function deletePassport(slotId, passportId, cardId) {
+  const card = document.getElementById(cardId);
+  if (card) card.style.opacity = '0.5';
+
+  try {
+    const res = await fetch(DELETE_URL_PASSPORT(passportId), { method: 'DELETE' });
+    if (!res.ok) throw new Error('Delete failed.');
+
+    // Remove card and reset slot
+    if (card) card.remove();
+    const zoneId = `passportZone-${slotId}`;
+    document.getElementById(zoneId)?.classList.remove('has-file');
+
+    passportSlots[slotId].passportId = null;
+    passportSlots[slotId].uploaded   = false;
+
+    // Update badge if no passports left
+    const anyUploaded = Object.values(passportSlots).some(s => s.uploaded);
+    if (!anyUploaded) {
+      document.getElementById('passportRequiredBadge').className =
+        'upload-section-badge badge badge-orange';
+      document.getElementById('passportRequiredBadge').textContent = 'Required';
+      document.getElementById('addPassportBtn').style.display = 'none';
+    }
+
+  } catch {
+    if (card) card.style.opacity = '1';
+    showError('Could not remove the file. Please try again.');
+  }
+
+  updateContinueBtn();
+}
+
+// ── Delete Emirates ID ──────────────────────────────────
+async function deleteEmirates(cardId) {
+  if (!emiratesUploadedId) return;
+  const card = document.getElementById(cardId);
+  if (card) card.style.opacity = '0.5';
+
+  try {
+    await fetch(DELETE_URL_EMIRATES(emiratesUploadedId), { method: 'DELETE' });
+    if (card) card.remove();
+    document.getElementById('emiratesDropZone')?.classList.remove('has-file');
+    emiratesUploadedId = null;
+  } catch {
+    if (card) card.style.opacity = '1';
+    showError('Could not remove the file. Please try again.');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Preview card rendering
+// ════════════════════════════════════════════════════════════
+
+function renderPreviewCard(containerId, type, slotId, filename, uploadedId, file, isDone, cardId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const resolvedCardId = cardId || `card-${Date.now()}`;
+  const ext = filename?.split('.').pop().toLowerCase() || '';
+  const isImage = ['jpg','jpeg','png'].includes(ext);
+
+  // Build thumbnail HTML
+  let thumbHtml;
+  if (isImage && file) {
+    const url = URL.createObjectURL(file);
+    thumbHtml = `<img src="${url}" alt="Preview" style="width:100%;height:100%;object-fit:cover" />`;
+  } else if (isImage && isDone) {
+    thumbHtml = `<span class="pdf-icon">🪪</span>`;
+  } else {
+    thumbHtml = `<span class="pdf-icon">📄</span>`;
+  }
+
+  const card = document.createElement('div');
+  card.className = `preview-card ${isDone ? 'done' : 'uploading'}`;
+  card.id = resolvedCardId;
+
+  card.innerHTML = `
+    <div class="preview-thumb-wrap">${thumbHtml}</div>
+    <div class="preview-info">
+      <div class="preview-filename">${escHtml(filename || 'Uploading…')}</div>
+      <div class="preview-status ${isDone ? 'done' : 'uploading'}">
+        ${isDone ? '✓ Uploaded' : 'Uploading…'}
+      </div>
+    </div>
+    <button class="preview-remove"
+            title="Remove"
+            onclick="${type === 'passport'
+              ? `deletePassport('${slotId}', '${uploadedId}', '${resolvedCardId}')`
+              : `deleteEmirates('${resolvedCardId}')`
+            }">×</button>
+  `;
+
+  container.appendChild(card);
+  return resolvedCardId;
+}
+
+function markSlotUploaded(slotId, passportId, label, file, isDone) {
+  // Just mark state — used for restoring existing uploads
+  passportSlots[slotId] = passportSlots[slotId] || {};
+  passportSlots[slotId].passportId = passportId;
+  passportSlots[slotId].uploaded   = true;
+  renderPreviewCard(`preview-${slotId}`, 'passport', slotId, label, passportId, file, isDone);
+  document.getElementById(`passportZone-${slotId}`)?.classList.add('has-file');
+  document.getElementById('addPassportBtn').style.display = 'flex';
+  document.getElementById('passportRequiredBadge').className =
+    'upload-section-badge badge badge-green';
+  document.getElementById('passportRequiredBadge').textContent = 'Uploaded';
+  updateContinueBtn();
+}
+
+function updatePreviewCardDone(cardId, uploadedId, type) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.classList.remove('uploading', 'error');
+  card.classList.add('done');
+  const statusEl = card.querySelector('.preview-status');
+  if (statusEl) {
+    statusEl.className   = 'preview-status done';
+    statusEl.textContent = '✓ Uploaded';
+  }
+  const removeBtn = card.querySelector('.preview-remove');
+  if (removeBtn) removeBtn.style.display = 'block';
+}
+
+function markPreviewCardError(cardId, message) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.classList.add('error');
+  card.classList.remove('uploading');
+  const statusEl = card.querySelector('.preview-status');
+  if (statusEl) {
+    statusEl.className   = 'preview-status error';
+    statusEl.textContent = '✗ ' + message;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Continue button
+// ════════════════════════════════════════════════════════════
+
+function updateContinueBtn() {
+  const anyUploaded = Object.values(passportSlots).some(s => s.uploaded);
+  const btn = document.getElementById('continueBtn');
+  if (!btn) return;
+
+  if (activeUploads > 0) {
+    btn.disabled     = true;
+    btn.innerHTML    = `<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Uploading…`;
+  } else if (anyUploaded) {
+    btn.disabled     = false;
+    btn.innerHTML    = `Continue to Statement
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 3l5 5-5 5"/>
+      </svg>`;
+    document.querySelector('.skip-note').textContent = '';
+  } else {
+    btn.disabled     = true;
+    btn.innerHTML    = `Continue to Statement
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 3l5 5-5 5"/>
+      </svg>`;
+    document.querySelector('.skip-note').textContent = 'At least one passport is required to continue.';
+  }
+}
+
+async function handleContinue() {
+  const anyUploaded = Object.values(passportSlots).some(s => s.uploaded);
+  if (!anyUploaded) {
+    showError('Please upload at least one passport before continuing.');
+    return;
+  }
+
+  const btn = document.getElementById('continueBtn');
+  btn.disabled  = true;
+  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Please wait…`;
+
+  try {
+    const res  = await fetch(COMPLETE_URL, { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      window.location.href = data.data.next_url;
+    } else {
+      showError(data.error || 'Could not proceed. Please try again.');
+      btn.disabled  = false;
+      updateContinueBtn();
+    }
+  } catch {
+    showError('Network error. Please check your connection.');
+    btn.disabled = false;
+    updateContinueBtn();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Helpers
+// ════════════════════════════════════════════════════════════
+
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = msg;
+  el.classList.add('visible');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearError() {
+  document.getElementById('errorBanner')?.classList.remove('visible');
+}
+
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

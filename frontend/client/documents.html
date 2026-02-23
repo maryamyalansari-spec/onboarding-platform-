@@ -1,0 +1,961 @@
+{% extends "client/_base.html" %}
+{% set current_step = 4 %}
+
+{% block title %}Supporting Documents{% endblock %}
+
+{% block extra_css %}
+<style>
+
+  /* ── Page typography ─────────────────────────────────────── */
+  .portal-card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+  }
+  .portal-card .subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1.75rem;
+    line-height: 1.5;
+  }
+
+  /* ── Section label ───────────────────────────────────────── */
+  .doc-section {
+    margin-bottom: 1.75rem;
+  }
+  .doc-section-title {
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .doc-section-title span.count-badge {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 0.6rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Divider ─────────────────────────────────────────────── */
+  .section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.5rem 0;
+  }
+
+  /* ── Checklist items ─────────────────────────────────────── */
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 0.6rem;
+    transition: border-color 0.15s;
+  }
+  .checklist-item.received {
+    border-color: var(--green);
+    background: var(--green-bg);
+  }
+  .checklist-item.pending-item {
+    border-color: var(--border);
+  }
+  .checklist-status {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .checklist-status.done {
+    background: var(--green);
+    color: #fff;
+  }
+  .checklist-status.todo {
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    color: var(--text-muted);
+  }
+  .checklist-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .checklist-type {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+  .checklist-notes {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+  }
+  .checklist-received-file {
+    font-size: 0.72rem;
+    color: var(--green);
+    font-family: monospace;
+    word-break: break-all;
+    margin-top: 0.2rem;
+  }
+  .checklist-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--blue);
+    border: 1px solid var(--blue);
+    border-radius: 3px;
+    padding: 4px 10px;
+    cursor: pointer;
+    background: transparent;
+    transition: background 0.12s, color 0.12s;
+    position: relative;
+    margin-top: 0.35rem;
+  }
+  .checklist-upload-btn:hover {
+    background: var(--blue-bg);
+  }
+  .checklist-upload-btn input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+  }
+  .checklist-remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 2px;
+    font-size: 0.8rem;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.12s;
+    margin-top: 2px;
+  }
+  .checklist-remove-btn:hover { color: var(--red); }
+  .checklist-uploading {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+  }
+
+  /* ── Additional upload drop zone ─────────────────────────── */
+  .main-drop-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 4px;
+    padding: 2rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+    margin-bottom: 1rem;
+  }
+  .main-drop-zone:hover,
+  .main-drop-zone.drag-over {
+    border-color: var(--blue);
+    background: var(--blue-bg);
+  }
+  .main-drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+  }
+  .main-drop-zone .drop-icon {
+    width: 36px;
+    height: 36px;
+    margin: 0 auto 0.6rem;
+    color: var(--text-muted);
+  }
+  .main-drop-zone .drop-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+  .main-drop-zone .drop-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Category select (inline with drop zone) ─────────────── */
+  .category-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+  .category-row label {
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .category-row select {
+    flex: 1;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  /* ── Uploaded file cards ─────────────────────────────────── */
+  #file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .file-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    transition: border-color 0.15s;
+  }
+  .file-card.uploading {
+    border-color: var(--blue);
+    opacity: 0.7;
+  }
+  .file-card.upload-error {
+    border-color: var(--red);
+    background: var(--red-bg, rgba(204,41,41,0.06));
+  }
+  .file-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 3px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .file-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 3px;
+  }
+  .file-card-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .file-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.25rem;
+  }
+  .file-name.system-name {
+    font-family: monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+  .file-cat-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .file-cat-label {
+    font-family: monospace;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .file-cat-select {
+    font-size: 0.72rem;
+    padding: 2px 5px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .file-status {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+  .file-remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    transition: color 0.12s;
+    line-height: 1;
+  }
+  .file-remove-btn:hover { color: var(--red); }
+
+  /* ── Warning / info alert ────────────────────────────────── */
+  .missing-docs-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.75rem 0.9rem;
+    background: rgba(232, 134, 10, 0.08);
+    border: 1px solid var(--orange);
+    border-radius: 3px;
+    margin-bottom: 1.25rem;
+    font-size: 0.78rem;
+    color: var(--orange);
+    line-height: 1.4;
+  }
+  .missing-docs-alert svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── Submit button ───────────────────────────────────────── */
+  .submit-row {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  #submit-btn {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 3px;
+    background: var(--green);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  #submit-btn:hover { opacity: 0.88; }
+  #submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .skip-note {
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="portal-card">
+
+  <h2>Supporting Documents</h2>
+  <p class="subtitle">
+    Upload any documents relevant to your matter. If your legal team has requested
+    specific items, you will see them listed below. Additional documents are always welcome.
+  </p>
+
+  {# ── Firm-requested checklist ─────────────────────────────── #}
+  {% if requested_docs %}
+  <div class="doc-section" id="checklist-section">
+    <div class="doc-section-title">
+      Requested by your legal team
+      <span class="count-badge" id="checklist-badge">
+        {{ requested_docs | selectattr('is_received') | list | length }}/{{ requested_docs | length }}
+      </span>
+    </div>
+
+    <div id="checklist-list">
+      {% for req in requested_docs %}
+      {% set recv_doc = uploaded_docs | selectattr('document_id', 'equalto', req.received_document_id) | first if req.received_document_id else None %}
+      <div class="checklist-item {% if req.is_received %}received{% else %}pending-item{% endif %}"
+           id="checklist-{{ req.request_id }}"
+           data-request-id="{{ req.request_id }}"
+           data-doc-type="{{ req.document_type.name }}"
+           data-received="{{ 'true' if req.is_received else 'false' }}">
+
+        <div class="checklist-status {% if req.is_received %}done{% else %}todo{% endif %}"
+             id="cs-icon-{{ req.request_id }}">
+          {% if req.is_received %}✓{% else %}—{% endif %}
+        </div>
+
+        <div class="checklist-body">
+          <div class="checklist-type">{{ req.document_type.value }}</div>
+          {% if req.notes %}
+          <div class="checklist-notes">{{ req.notes }}</div>
+          {% endif %}
+
+          {% if req.is_received and recv_doc %}
+          <div class="checklist-received-file" id="cs-file-{{ req.request_id }}">
+            {{ recv_doc.saved_filename }}
+          </div>
+          {% elif req.is_received %}
+          <div class="checklist-received-file" id="cs-file-{{ req.request_id }}">
+            Document received
+          </div>
+          {% endif %}
+
+          {% if not req.is_received %}
+          <div id="cs-upload-area-{{ req.request_id }}">
+            <label class="checklist-upload-btn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Upload
+              <input type="file" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+                     onchange="handleChecklistUpload(this, '{{ req.request_id }}', '{{ req.document_type.name }}')">
+            </label>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if req.is_received %}
+        <button class="checklist-remove-btn"
+                id="cs-remove-{{ req.request_id }}"
+                onclick="removeChecklistDoc(this, '{{ req.request_id }}', '{{ recv_doc.document_id if recv_doc else '' }}')"
+                title="Remove">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+  {% endif %}
+
+  {# ── Additional documents ─────────────────────────────────── #}
+  <div class="doc-section">
+    <div class="doc-section-title">
+      Additional Documents
+      <span class="count-badge" id="additional-badge">{{ uploaded_docs | rejectattr('requested_by_firm') | list | length }}</span>
+    </div>
+
+    <div class="category-row">
+      <label for="doc-category">Category</label>
+      <select id="doc-category">
+        <option value="other">Other</option>
+        <option value="business_license">Business License</option>
+        <option value="contract">Contract</option>
+        <option value="court_document">Court Document</option>
+        <option value="power_of_attorney">Power of Attorney</option>
+        <option value="title_deed">Title Deed</option>
+        <option value="bank_statement">Bank Statement</option>
+        <option value="corporate_documents">Corporate Documents</option>
+        <option value="passport">Passport (additional)</option>
+        <option value="emirates_id">Emirates ID (additional)</option>
+      </select>
+    </div>
+
+    <div class="main-drop-zone" id="main-drop-zone">
+      <input type="file" id="main-file-input" multiple
+             accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx">
+      <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="12" y2="12"/>
+        <line x1="15" y1="15" x2="12" y2="12"/>
+      </svg>
+      <div class="drop-label">Drop files here or click to browse</div>
+      <div class="drop-hint">PDF, JPG, PNG, DOC, XLS — max 20 MB each</div>
+    </div>
+
+    {# Server-rendered existing additional docs #}
+    <div id="file-list">
+      {% for doc in uploaded_docs %}
+      {% if not doc.requested_by_firm %}
+      <div class="file-card" id="fc-{{ doc.document_id }}" data-doc-id="{{ doc.document_id }}">
+        <div class="file-icon">📄</div>
+        <div class="file-card-body">
+          <div class="file-name">{{ doc.original_filename }}</div>
+          <div class="file-name system-name">{{ doc.saved_filename }}</div>
+          <div class="file-cat-row">
+            <span class="file-cat-label">Type</span>
+            <select class="file-cat-select"
+                    onchange="updateCategory('{{ doc.document_id }}', this.value)">
+              <option value="other" {% if doc.file_type.name == 'other' %}selected{% endif %}>Other</option>
+              <option value="business_license" {% if doc.file_type.name == 'business_license' %}selected{% endif %}>Business License</option>
+              <option value="contract" {% if doc.file_type.name == 'contract' %}selected{% endif %}>Contract</option>
+              <option value="court_document" {% if doc.file_type.name == 'court_document' %}selected{% endif %}>Court Document</option>
+              <option value="power_of_attorney" {% if doc.file_type.name == 'power_of_attorney' %}selected{% endif %}>Power of Attorney</option>
+              <option value="title_deed" {% if doc.file_type.name == 'title_deed' %}selected{% endif %}>Title Deed</option>
+              <option value="bank_statement" {% if doc.file_type.name == 'bank_statement' %}selected{% endif %}>Bank Statement</option>
+              <option value="corporate_documents" {% if doc.file_type.name == 'corporate_documents' %}selected{% endif %}>Corporate Documents</option>
+              <option value="passport" {% if doc.file_type.name == 'passport' %}selected{% endif %}>Passport</option>
+              <option value="emirates_id" {% if doc.file_type.name == 'emirates_id' %}selected{% endif %}>Emirates ID</option>
+            </select>
+          </div>
+        </div>
+        <button class="file-remove-btn" onclick="removeAdditionalDoc('{{ doc.document_id }}')" title="Remove">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Missing docs warning (shown if pending checklist items exist) #}
+  <div id="missing-alert" class="missing-docs-alert" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span id="missing-alert-text">Some requested documents are still pending. You can submit now and upload them later, or add them above first.</span>
+  </div>
+
+  {# ── Submit ───────────────────────────────────────────────── #}
+  <div class="submit-row">
+    <button id="submit-btn" onclick="submitIntake()">
+      Submit Intake
+    </button>
+    <p class="skip-note">
+      You can still upload documents after submission if your lawyer requests them.
+    </p>
+  </div>
+
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+  const TOKEN       = "{{ token }}";
+  const REF_ID      = "{{ client.reference_id }}";
+  const CLIENT_NAME = "{{ client.full_name }}";
+
+  /* ── Category labels ────────────────────────────────────── */
+  const CAT_LABELS = {
+    passport:            "Passport",
+    emirates_id:         "Emirates ID",
+    business_license:    "Business License",
+    contract:            "Contract",
+    court_document:      "Court Document",
+    power_of_attorney:   "Power of Attorney",
+    title_deed:          "Title Deed",
+    bank_statement:      "Bank Statement",
+    corporate_documents: "Corporate Documents",
+    other:               "Other",
+  };
+
+  /* ── Counters ───────────────────────────────────────────── */
+  let additionalCount = document.querySelectorAll("#file-list .file-card").length;
+  let checklistReceived = document.querySelectorAll(".checklist-item.received").length;
+  const checklistTotal  = document.querySelectorAll(".checklist-item").length;
+
+  function updateBadges() {
+    const addBadge = document.getElementById("additional-badge");
+    if (addBadge) addBadge.textContent = additionalCount;
+
+    const clBadge = document.getElementById("checklist-badge");
+    if (clBadge) clBadge.textContent = `${checklistReceived}/${checklistTotal}`;
+  }
+
+  function checkMissingAlert() {
+    const alert = document.getElementById("missing-alert");
+    if (!alert) return;
+    const pendingItems = document.querySelectorAll(".checklist-item.pending-item");
+    if (pendingItems.length > 0 && checklistTotal > 0) {
+      const names = Array.from(pendingItems).map(el => {
+        return el.querySelector(".checklist-type")?.textContent || "document";
+      });
+      const listed = names.slice(0, 3).join(", ");
+      const extra  = names.length > 3 ? ` and ${names.length - 3} more` : "";
+      document.getElementById("missing-alert-text").textContent =
+        `Still pending: ${listed}${extra}. You can submit now and add them later.`;
+      alert.style.display = "flex";
+    } else {
+      alert.style.display = "none";
+    }
+  }
+
+  /* ── Checklist upload ───────────────────────────────────── */
+  async function handleChecklistUpload(input, requestId, docType) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const item     = document.getElementById(`checklist-${requestId}`);
+    const uploadArea = document.getElementById(`cs-upload-area-${requestId}`);
+
+    // Show uploading state
+    uploadArea.innerHTML = `
+      <div class="checklist-uploading">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" class="spin-svg" style="animation:spin 1s linear infinite">
+          <line x1="12" y1="2" x2="12" y2="6"/>
+          <line x1="12" y1="18" x2="12" y2="22"/>
+          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+          <line x1="2" y1="12" x2="6" y2="12"/>
+          <line x1="18" y1="12" x2="22" y2="12"/>
+          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+        </svg>
+        Uploading…
+      </div>`;
+
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("document_type", docType);
+    fd.append("request_id", requestId);
+
+    try {
+      const resp = await fetch(`/client/documents/upload?token=${TOKEN}`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        uploadArea.innerHTML = `
+          <div class="checklist-uploading" style="color:var(--red)">
+            Upload failed — <a href="#" onclick="resetChecklistUpload('${requestId}','${docType}');return false;"
+               style="color:var(--red);">try again</a>
+          </div>`;
+        return;
+      }
+
+      // Mark as received
+      const docId = data.data.document_id;
+      const fname = data.data.saved_filename;
+
+      item.classList.remove("pending-item");
+      item.classList.add("received");
+
+      const icon = document.getElementById(`cs-icon-${requestId}`);
+      icon.className = "checklist-status done";
+      icon.textContent = "✓";
+
+      // Show received filename + remove button
+      const body = item.querySelector(".checklist-body");
+      const uploadAreaEl = document.getElementById(`cs-upload-area-${requestId}`);
+      if (uploadAreaEl) uploadAreaEl.remove();
+
+      const fileEl = document.createElement("div");
+      fileEl.className = "checklist-received-file";
+      fileEl.id = `cs-file-${requestId}`;
+      fileEl.textContent = fname;
+      body.appendChild(fileEl);
+
+      // Add remove button
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "checklist-remove-btn";
+      removeBtn.id = `cs-remove-${requestId}`;
+      removeBtn.title = "Remove";
+      removeBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      removeBtn.onclick = () => removeChecklistDoc(removeBtn, requestId, docId);
+      item.appendChild(removeBtn);
+
+      item.dataset.docId = docId;
+      checklistReceived++;
+      updateBadges();
+      checkMissingAlert();
+
+    } catch (err) {
+      uploadArea.innerHTML = `
+        <div class="checklist-uploading" style="color:var(--red)">
+          Network error — <a href="#" onclick="resetChecklistUpload('${requestId}','${docType}');return false;"
+             style="color:var(--red);">try again</a>
+        </div>`;
+    }
+  }
+
+  function resetChecklistUpload(requestId, docType) {
+    const uploadArea = document.getElementById(`cs-upload-area-${requestId}`);
+    if (!uploadArea) return;
+    uploadArea.innerHTML = `
+      <label class="checklist-upload-btn">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Upload
+        <input type="file" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+               onchange="handleChecklistUpload(this, '${requestId}', '${docType}')">
+      </label>`;
+  }
+
+  async function removeChecklistDoc(btn, requestId, docId) {
+    if (!docId) return;
+
+    btn.disabled = true;
+    try {
+      const resp = await fetch(`/client/documents/${docId}?token=${TOKEN}`, {
+        method: "DELETE",
+      });
+      if (!resp.ok) { btn.disabled = false; return; }
+
+      const item = document.getElementById(`checklist-${requestId}`);
+      item.classList.remove("received");
+      item.classList.add("pending-item");
+
+      const icon = document.getElementById(`cs-icon-${requestId}`);
+      icon.className = "checklist-status todo";
+      icon.textContent = "—";
+
+      // Remove file display and remove button
+      const fileEl = document.getElementById(`cs-file-${requestId}`);
+      if (fileEl) fileEl.remove();
+      btn.remove();
+
+      // Add upload button back
+      const docType = item.dataset.docType;
+      const body    = item.querySelector(".checklist-body");
+      const uploadDiv = document.createElement("div");
+      uploadDiv.id = `cs-upload-area-${requestId}`;
+      uploadDiv.innerHTML = `
+        <label class="checklist-upload-btn">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Upload
+          <input type="file" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+                 onchange="handleChecklistUpload(this, '${requestId}', '${docType}')">
+        </label>`;
+      body.appendChild(uploadDiv);
+
+      checklistReceived = Math.max(0, checklistReceived - 1);
+      updateBadges();
+      checkMissingAlert();
+
+    } catch (e) { btn.disabled = false; }
+  }
+
+  /* ── Additional documents upload ───────────────────────── */
+  const dropZone    = document.getElementById("main-drop-zone");
+  const fileInput   = document.getElementById("main-file-input");
+  const catSelect   = document.getElementById("doc-category");
+
+  dropZone.addEventListener("dragover", e => {
+    e.preventDefault();
+    dropZone.classList.add("drag-over");
+  });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(f => uploadAdditionalFile(f));
+  });
+  fileInput.addEventListener("change", () => {
+    Array.from(fileInput.files).forEach(f => uploadAdditionalFile(f));
+    fileInput.value = "";
+  });
+
+  async function uploadAdditionalFile(file) {
+    const docType = catSelect.value;
+    const tempId  = `temp-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+
+    // Add placeholder card
+    const card = createFileCard(tempId, file.name, null, docType, true);
+    document.getElementById("file-list").appendChild(card);
+
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("document_type", docType);
+
+    try {
+      const resp = await fetch(`/client/documents/upload?token=${TOKEN}`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        card.classList.remove("uploading");
+        card.classList.add("upload-error");
+        card.querySelector(".file-status").textContent = "Upload failed";
+        return;
+      }
+
+      const docId = data.data.document_id;
+      const fname = data.data.saved_filename;
+      const ftype = data.data.file_type;
+
+      // Replace placeholder with real card
+      card.remove();
+      const realCard = createFileCard(docId, file.name, fname, ftype, false);
+      document.getElementById("file-list").appendChild(realCard);
+
+      additionalCount++;
+      updateBadges();
+
+    } catch (err) {
+      card.classList.remove("uploading");
+      card.classList.add("upload-error");
+      card.querySelector(".file-status").textContent = "Network error";
+    }
+  }
+
+  function createFileCard(docId, originalName, savedName, docType, uploading) {
+    const card = document.createElement("div");
+    card.className = "file-card" + (uploading ? " uploading" : "");
+    card.id = `fc-${docId}`;
+    card.dataset.docId = docId;
+
+    const isImage = /\.(jpg|jpeg|png)$/i.test(originalName);
+    const iconHtml = isImage
+      ? `<div class="file-icon"><img src="#" alt="" id="thumb-${docId}"></div>`
+      : `<div class="file-icon">📄</div>`;
+
+    const catOptions = Object.entries(CAT_LABELS).map(([val, label]) =>
+      `<option value="${val}" ${val === docType ? "selected" : ""}>${label}</option>`
+    ).join("");
+
+    card.innerHTML = `
+      ${iconHtml}
+      <div class="file-card-body">
+        <div class="file-name">${escHtml(originalName)}</div>
+        ${savedName ? `<div class="file-name system-name">${escHtml(savedName)}</div>` : ""}
+        <div class="file-cat-row">
+          <span class="file-cat-label">Type</span>
+          <select class="file-cat-select" onchange="updateCategory('${docId}', this.value)">
+            ${catOptions}
+          </select>
+        </div>
+        <div class="file-status">${uploading ? "Uploading…" : ""}</div>
+      </div>
+      <button class="file-remove-btn" onclick="removeAdditionalDoc('${docId}')" title="Remove">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>`;
+    return card;
+  }
+
+  async function removeAdditionalDoc(docId) {
+    const card = document.getElementById(`fc-${docId}`);
+    if (!card) return;
+
+    const btn = card.querySelector(".file-remove-btn");
+    if (btn) btn.disabled = true;
+
+    try {
+      const resp = await fetch(`/client/documents/${docId}?token=${TOKEN}`, {
+        method: "DELETE",
+      });
+      if (!resp.ok) { if (btn) btn.disabled = false; return; }
+      card.remove();
+      additionalCount = Math.max(0, additionalCount - 1);
+      updateBadges();
+    } catch (e) { if (btn) btn.disabled = false; }
+  }
+
+  async function updateCategory(docId, value) {
+    try {
+      await fetch(`/client/documents/${docId}/category?token=${TOKEN}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_type: value }),
+      });
+    } catch (e) {
+      // Silent failure — category can be updated later
+    }
+  }
+
+  /* ── Submit intake ───────────────────────────────────────── */
+  async function submitIntake() {
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Submitting…";
+
+    try {
+      const resp = await fetch(`/client/submit?token=${TOKEN}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        btn.disabled = false;
+        btn.textContent = "Submit Intake";
+        showError(data.message || "Submission failed. Please try again.");
+        return;
+      }
+
+      // Redirect to confirmation page
+      window.location.href = `/client/${REF_ID}/confirmation?token=${TOKEN}`;
+
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Submit Intake";
+      showError("Network error. Please check your connection and try again.");
+    }
+  }
+
+  function showError(msg) {
+    let el = document.getElementById("submit-error");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "submit-error";
+      el.style.cssText = "color:var(--red);font-size:0.78rem;text-align:center;margin-top:0.5rem;";
+      document.getElementById("submit-btn").insertAdjacentElement("afterend", el);
+    }
+    el.textContent = msg;
+  }
+
+  /* ── Utility ─────────────────────────────────────────────── */
+  function escHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+              .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  }
+
+  /* ── Spinner keyframe ───────────────────────────────────── */
+  const style = document.createElement("style");
+  style.textContent = "@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }";
+  document.head.appendChild(style);
+
+  /* ── Init ────────────────────────────────────────────────── */
+  updateBadges();
+  checkMissingAlert();
+
+</script>
+{% endblock %}

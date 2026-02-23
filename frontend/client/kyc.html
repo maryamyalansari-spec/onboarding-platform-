@@ -1,0 +1,263 @@
+{% extends "client/_base.html" %}
+{# Step indicator: KYC is between ID upload (step 2) and Statement (step 3) #}
+{% set current_step = 3 %}
+
+{% block title %}Know Your Client{% endblock %}
+
+{% block extra_css %}
+<style>
+  .portal-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .portal-card .subtitle {
+    font-size: 0.8rem; color: var(--text-muted);
+    margin-bottom: 1.75rem; line-height: 1.5;
+  }
+  .kyc-section { margin-bottom: 1.4rem; }
+  .kyc-section-title {
+    font-family: monospace; font-size: 0.6rem;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--text-muted); margin-bottom: 0.6rem;
+  }
+  .form-field { margin-bottom: 0.9rem; }
+  .form-field label {
+    display: block; font-family: monospace; font-size: 0.62rem;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-muted); margin-bottom: 0.35rem;
+  }
+  .form-field input[type="text"],
+  .form-field select,
+  .form-field textarea {
+    width: 100%; box-sizing: border-box;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border); border-radius: 3px;
+    background: var(--surface); color: var(--text);
+    font-size: 0.85rem; transition: border-color 0.15s;
+  }
+  .form-field input:focus,
+  .form-field select:focus,
+  .form-field textarea:focus { outline: none; border-color: var(--blue); }
+  .form-field textarea { resize: vertical; min-height: 70px; }
+
+  /* Radio / checkbox options */
+  .radio-group { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .radio-card {
+    flex: 1; min-width: 120px;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border); border-radius: 3px;
+    background: var(--surface); cursor: pointer;
+    font-size: 0.82rem; transition: border-color 0.15s;
+  }
+  .radio-card:has(input:checked) { border-color: var(--blue); background: rgba(41,98,204,0.06); }
+  .radio-card input { accent-color: var(--blue); margin: 0; }
+
+  .checkbox-card {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border); border-radius: 3px;
+    background: var(--surface); cursor: pointer;
+    font-size: 0.82rem; transition: border-color 0.15s;
+  }
+  .checkbox-card:has(input:checked) { border-color: var(--blue); background: rgba(41,98,204,0.06); }
+  .checkbox-card input { accent-color: var(--blue); margin-top: 2px; flex-shrink: 0; }
+
+  #pep-details-wrap { display: none; margin-top: 0.6rem; }
+
+  .submit-btn {
+    width: 100%; padding: 0.7rem;
+    background: var(--blue); color: #fff; border: none;
+    border-radius: 3px; font-size: 0.88rem; font-weight: 600;
+    cursor: pointer; margin-top: 0.5rem; transition: opacity 0.15s;
+  }
+  .submit-btn:hover { opacity: 0.88; }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .result-banner {
+    display: none; margin-top: 0.75rem;
+    padding: 0.7rem 0.9rem; border-radius: 3px; font-size: 0.78rem;
+  }
+  .result-banner.success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
+  .result-banner.error   { background: rgba(204,41,41,0.07); border: 1px solid var(--red); color: var(--red); }
+
+  .info-banner {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    padding: 0.7rem 0.9rem;
+    background: rgba(41,98,204,0.07); border: 1px solid var(--blue);
+    border-radius: 3px; font-size: 0.78rem; color: var(--blue);
+    line-height: 1.4; margin-bottom: 1.25rem;
+  }
+  .info-banner svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="portal-card">
+  <h2>Know Your Client (KYC)</h2>
+  <p class="subtitle">
+    UAE law firms are required by law to collect this information. Your answers
+    are kept strictly confidential and used solely for compliance purposes.
+  </p>
+
+  <div class="info-banner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span>Reference: <strong>{{ client.reference_id }}</strong></span>
+  </div>
+
+  <!-- Section: Personal -->
+  <div class="kyc-section">
+    <div class="kyc-section-title">Personal &amp; Professional</div>
+
+    <div class="form-field">
+      <label for="occupation">Occupation / Job Title</label>
+      <input type="text" id="occupation" placeholder="e.g. Director, Engineer, Consultant"
+             value="{{ existing_kyc.occupation or '' }}" />
+    </div>
+
+    <div class="form-field">
+      <label for="employer">Employer / Company Name</label>
+      <input type="text" id="employer" placeholder="e.g. Acme FZE"
+             value="{{ existing_kyc.employer or '' }}" />
+    </div>
+
+    <div class="form-field">
+      <label for="country">Country of Residence</label>
+      <input type="text" id="country" placeholder="e.g. United Arab Emirates"
+             value="{{ existing_kyc.country_of_residence or '' }}" />
+    </div>
+  </div>
+
+  <!-- Section: Source of Funds -->
+  <div class="kyc-section">
+    <div class="kyc-section-title">Source of Funds</div>
+    <div class="form-field">
+      <label for="source-of-funds">
+        How do you intend to fund any legal fees or matters involved in this case?
+      </label>
+      <textarea id="source-of-funds" rows="3"
+        placeholder="e.g. Personal savings, business income, proceeds from property sale…">{{ existing_kyc.source_of_funds or '' }}</textarea>
+    </div>
+  </div>
+
+  <!-- Section: PEP -->
+  <div class="kyc-section">
+    <div class="kyc-section-title">Politically Exposed Person (PEP)</div>
+    <p style="font-size:0.76rem;color:var(--text-muted);margin-bottom:0.6rem;">
+      A PEP is a person who holds or has held a prominent public position (e.g. government
+      official, senior military officer, judiciary member, or a close associate or family
+      member of such a person).
+    </p>
+    <div class="form-field">
+      <div class="radio-group">
+        <label class="radio-card">
+          <input type="radio" name="is-pep" value="no"
+                 {% if existing_kyc and not existing_kyc.is_pep %}checked{% elif not existing_kyc %}checked{% endif %}
+                 onchange="togglePepDetails(false)" />
+          No, I am not a PEP
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="is-pep" value="yes"
+                 {% if existing_kyc and existing_kyc.is_pep %}checked{% endif %}
+                 onchange="togglePepDetails(true)" />
+          Yes, I am or am connected to a PEP
+        </label>
+      </div>
+      <div id="pep-details-wrap">
+        <label for="pep-details" style="margin-top:0.5rem;display:block;">Please provide details</label>
+        <textarea id="pep-details" rows="2"
+          placeholder="Position held, country, relationship…">{{ existing_kyc.pep_details or '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Sanctions acknowledgment -->
+  <div class="kyc-section">
+    <div class="kyc-section-title">Sanctions &amp; Compliance Acknowledgment</div>
+    <label class="checkbox-card">
+      <input type="checkbox" id="sanctions-ack"
+             {% if existing_kyc and existing_kyc.sanctions_ack %}checked{% endif %} />
+      <span>
+        I confirm that I am not subject to any UAE, UN, US, EU, or UK sanctions,
+        and that the information I have provided is true and accurate to the best
+        of my knowledge. I understand that providing false information is a criminal
+        offence under UAE law.
+      </span>
+    </label>
+  </div>
+
+  <button class="submit-btn" id="submit-btn" onclick="submitKyc()">
+    Continue to Statement →
+  </button>
+  <div id="result-banner" class="result-banner"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const TOKEN  = "{{ token }}";
+const REF_ID = "{{ client.reference_id }}";
+
+// Show PEP details if "yes" is pre-selected (existing KYC)
+{% if existing_kyc and existing_kyc.is_pep %}
+document.getElementById("pep-details-wrap").style.display = "block";
+{% endif %}
+
+function togglePepDetails(show) {
+  document.getElementById("pep-details-wrap").style.display = show ? "block" : "none";
+}
+
+async function submitKyc() {
+  const btn    = document.getElementById("submit-btn");
+  const banner = document.getElementById("result-banner");
+
+  const sanctionsAck = document.getElementById("sanctions-ack").checked;
+  if (!sanctionsAck) {
+    showBanner("error", "You must acknowledge the sanctions check to continue.");
+    return;
+  }
+
+  const isPep = document.querySelector('input[name="is-pep"]:checked')?.value === "yes";
+
+  const body = {
+    occupation:           document.getElementById("occupation").value.trim(),
+    employer:             document.getElementById("employer").value.trim(),
+    country_of_residence: document.getElementById("country").value.trim(),
+    source_of_funds:      document.getElementById("source-of-funds").value.trim(),
+    is_pep:               isPep,
+    pep_details:          isPep ? document.getElementById("pep-details").value.trim() : "",
+    sanctions_ack:        true,
+  };
+
+  btn.disabled = true;
+  btn.textContent = "Submitting…";
+  banner.style.display = "none";
+
+  try {
+    const resp = await fetch(`/client/kyc/submit?token=${TOKEN}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) {
+      showBanner("error", data.message || "Failed to submit. Please try again.");
+      return;
+    }
+    showBanner("success", "✓ KYC submitted. Redirecting…");
+    setTimeout(() => { window.location.href = data.data.redirect; }, 1000);
+  } catch(e) {
+    showBanner("error", "Network error. Please try again.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Continue to Statement →";
+  }
+}
+
+function showBanner(type, msg) {
+  const b = document.getElementById("result-banner");
+  b.className = `result-banner ${type}`;
+  b.textContent = msg;
+  b.style.display = "block";
+}
+</script>
+{% endblock %}

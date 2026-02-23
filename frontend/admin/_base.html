@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ITIFAQ{% endblock %} — Onboarding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/sidebar.css" />
+  <link rel="stylesheet" href="/static/css/components.css" />
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+<div class="app-shell">
+
+  <!-- Mobile sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+
+    <!-- Logo -->
+    <div class="sidebar-header">
+      <span class="sidebar-logo">ITIFAQ</span>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+
+      <!-- OVERVIEW -->
+      <div class="nav-section">
+        <div class="nav-section-label">Overview</div>
+        <a class="nav-item" href="/admin/" data-label="Dashboard">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="1" width="6" height="6" rx="1"/>
+            <rect x="9" y="1" width="6" height="6" rx="1"/>
+            <rect x="1" y="9" width="6" height="6" rx="1"/>
+            <rect x="9" y="9" width="6" height="6" rx="1"/>
+          </svg>
+          <span class="nav-label">Dashboard</span>
+          <span class="nav-badge" id="badge-pending" style="display:none"></span>
+        </a>
+      </div>
+
+      <!-- CLIENTS -->
+      <div class="nav-section">
+        <div class="nav-section-label">Clients</div>
+        <a class="nav-item" href="/admin/clients" data-label="All Clients">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="6" cy="5" r="3"/>
+            <path d="M1 14c0-3 2-5 5-5s5 2 5 5"/>
+            <path d="M11 2a3 3 0 0 1 0 6"/>
+            <path d="M15 14c0-2.5-1.5-4-4-4.5"/>
+          </svg>
+          <span class="nav-label">All Clients</span>
+        </a>
+        <a class="nav-item" href="#" data-label="New Intake" id="navNewIntake" onclick="openNewIntakeModal(); return false;">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="7"/>
+            <path d="M8 5v6M5 8h6"/>
+          </svg>
+          <span class="nav-label">New Intake</span>
+        </a>
+        <a class="nav-item" href="/admin/database" data-label="Database Upload">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <ellipse cx="8" cy="4" rx="6" ry="2"/>
+            <path d="M2 4v4c0 1.1 2.7 2 6 2s6-.9 6-2V4"/>
+            <path d="M2 8v4c0 1.1 2.7 2 6 2s6-.9 6-2V8"/>
+          </svg>
+          <span class="nav-label">Database Upload</span>
+        </a>
+      </div>
+
+      <!-- CONFLICT -->
+      <div class="nav-section">
+        <div class="nav-section-label">Conflict</div>
+        <a class="nav-item" href="/admin/conflict" data-label="Conflict Results">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M8 2L2 13h12L8 2z"/>
+            <path d="M8 7v3"/>
+            <circle cx="8" cy="11.5" r="0.5" fill="currentColor"/>
+          </svg>
+          <span class="nav-label">Conflict Results</span>
+        </a>
+        <a class="nav-item" href="/admin/conflict?filter=pending" data-label="Manual Review">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M5.5 8l2 2 3-3"/>
+          </svg>
+          <span class="nav-label">Manual Review</span>
+          <span class="nav-badge" id="badge-review" style="display:none"></span>
+        </a>
+      </div>
+
+      <!-- OUTPUT -->
+      <div class="nav-section">
+        <div class="nav-section-label">Output</div>
+        <a class="nav-item" href="/admin/briefs" data-label="AI Briefs">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="1" width="12" height="14" rx="1"/>
+            <path d="M5 5h6M5 8h6M5 11h4"/>
+          </svg>
+          <span class="nav-label">AI Briefs</span>
+        </a>
+        <a class="nav-item" href="/admin/letters" data-label="Engagement Letters">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="3" width="14" height="10" rx="1"/>
+            <path d="M1 3l7 6 7-6"/>
+          </svg>
+          <span class="nav-label">Engagement Letters</span>
+        </a>
+        <a class="nav-item" href="/admin/documents" data-label="Documents">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 1h7l4 4v10H3V1z"/>
+            <path d="M10 1v4h4"/>
+            <path d="M5 8h6M5 11h4"/>
+          </svg>
+          <span class="nav-label">Documents</span>
+        </a>
+      </div>
+
+      <!-- COMPLIANCE -->
+      <div class="nav-section">
+        <div class="nav-section-label">Compliance</div>
+        <a class="nav-item" href="/admin/audit" data-label="Audit Log">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="1" width="12" height="14" rx="1"/>
+            <path d="M5 4h6M5 7h6M5 10h4"/>
+            <circle cx="11.5" cy="11.5" r="2.5" fill="none"/>
+            <path d="M13.5 13.5l1.5 1.5"/>
+          </svg>
+          <span class="nav-label">Audit Log</span>
+        </a>
+      </div>
+
+      <!-- CONFIG -->
+      <div class="nav-section">
+        <div class="nav-section-label">Config</div>
+        <a class="nav-item" href="/admin/settings" data-label="Settings">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="2.5"/>
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/>
+          </svg>
+          <span class="nav-label">Settings</span>
+        </a>
+        <a class="nav-item" href="/admin/settings#whatsapp" data-label="WhatsApp Config">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M8 1C4.1 1 1 4.1 1 8c0 1.3.4 2.5 1 3.5L1 15l3.5-1c1 .6 2.2 1 3.5 1 3.9 0 7-3.1 7-7S11.9 1 8 1z"/>
+            <path d="M5.5 6s0-1 1-1 1.5.5 1.5 1.5S7 8 7 8s0 1.5 2 2.5"/>
+          </svg>
+          <span class="nav-label">WhatsApp Config</span>
+        </a>
+        <a class="nav-item" href="/admin/settings#api-keys" data-label="API Keys">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="5" cy="10" r="3.5"/>
+            <path d="M7.5 7.5L13 2"/>
+            <path d="M11 4l2 2"/>
+          </svg>
+          <span class="nav-label">API Keys</span>
+        </a>
+      </div>
+
+    </nav>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <a class="nav-item" href="#" data-logout data-label="Sign Out">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M6 3H2v10h4"/>
+          <path d="M10 5l4 3-4 3"/>
+          <path d="M14 8H6"/>
+        </svg>
+        <span class="nav-label">Sign Out</span>
+      </a>
+    </div>
+
+  </aside>
+  <!-- ═══════════════════════════ END SIDEBAR ═══════════════════════════ -->
+
+  <!-- Main content area -->
+  <div class="main-content">
+
+    <!-- ═══════════════════════════ TOPBAR ═══════════════════════════ -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <!-- Sidebar toggle -->
+        <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle sidebar">
+          <div class="sidebar-toggle-icon">
+            <span></span><span></span><span></span>
+          </div>
+        </button>
+        <span class="page-title">{% block page_title %}{% endblock %}</span>
+      </div>
+
+      <div class="topbar-right">
+        <span class="topbar-clock" id="clock"></span>
+        <button class="theme-toggle-btn" data-theme-btn onclick="toggleTheme()">Light</button>
+        <div class="user-pill">
+          <span>{{ session.get('name', 'User') }}</span>
+          <span class="user-role-tag">{{ session.get('role', 'lawyer') }}</span>
+        </div>
+      </div>
+    </header>
+    <!-- ═══════════════════════════ END TOPBAR ═══════════════════════════ -->
+
+    <!-- Page content -->
+    <main class="page-body">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════ NEW INTAKE MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="newIntakeModal" style="display:none" onclick="if(event.target===this)closeNewIntakeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">New Client Intake</span>
+      <button class="modal-close" onclick="closeNewIntakeModal()">×</button>
+    </div>
+    <div class="modal-body">
+
+      <div style="display:flex;gap:1rem;margin-bottom:1.5rem;">
+        <button class="btn btn-secondary w-full" id="channelWhatsApp" onclick="selectChannel('whatsapp')" style="flex:1">
+          WhatsApp
+        </button>
+        <button class="btn btn-secondary w-full" id="channelWeb" onclick="selectChannel('web')" style="flex:1">
+          Web Portal
+        </button>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem">
+        <label class="form-label form-required">Full Name</label>
+        <input class="form-input" id="intakeName" type="text" placeholder="Ahmed Al Marri" />
+      </div>
+      <div class="form-group" style="margin-bottom:1rem">
+        <label class="form-label form-required">Email</label>
+        <input class="form-input" id="intakeEmail" type="email" placeholder="client@example.com" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label form-required">Phone (WhatsApp)</label>
+        <div style="display:flex;gap:0.5rem">
+          <input class="form-input" value="+971" style="width:70px;flex-shrink:0" id="intakeCode" />
+          <input class="form-input" id="intakePhone" type="tel" placeholder="50 123 4567" style="flex:1" />
+        </div>
+      </div>
+
+      <div class="alert alert-blue mt-4" id="intakeChannelHint">
+        Choose a channel above to send the first message.
+      </div>
+
+      <div class="error-msg mt-2" id="intakeError" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeNewIntakeModal()">Cancel</button>
+      <button class="btn btn-primary" id="intakeSubmitBtn" onclick="submitNewIntake()">Start Intake</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SCRIPTS ═══════════════════════════ -->
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+  // ── New Intake Modal ─────────────────────────────────────────
+  let selectedChannel = null;
+
+  function openNewIntakeModal() {
+    document.getElementById('newIntakeModal').style.display = 'flex';
+    selectedChannel = null;
+    document.getElementById('channelWhatsApp').classList.remove('btn-primary');
+    document.getElementById('channelWeb').classList.remove('btn-primary');
+    document.getElementById('channelWhatsApp').classList.add('btn-secondary');
+    document.getElementById('channelWeb').classList.add('btn-secondary');
+  }
+
+  function closeNewIntakeModal() {
+    document.getElementById('newIntakeModal').style.display = 'none';
+    document.getElementById('intakeError').style.display = 'none';
+    document.getElementById('intakeName').value = '';
+    document.getElementById('intakeEmail').value = '';
+    document.getElementById('intakePhone').value = '';
+  }
+
+  function selectChannel(channel) {
+    selectedChannel = channel;
+    const wa  = document.getElementById('channelWhatsApp');
+    const web = document.getElementById('channelWeb');
+    if (channel === 'whatsapp') {
+      wa.className  = 'btn btn-primary w-full';
+      web.className = 'btn btn-secondary w-full';
+      document.getElementById('intakeChannelHint').textContent =
+        'An initial WhatsApp message will be sent to the client automatically.';
+      document.getElementById('intakeChannelHint').className = 'alert alert-green mt-4';
+    } else {
+      web.className = 'btn btn-primary w-full';
+      wa.className  = 'btn btn-secondary w-full';
+      document.getElementById('intakeChannelHint').textContent =
+        'A pre-authenticated portal link will be generated for the client.';
+      document.getElementById('intakeChannelHint').className = 'alert alert-blue mt-4';
+    }
+  }
+
+  async function submitNewIntake() {
+    const name  = document.getElementById('intakeName').value.trim();
+    const email = document.getElementById('intakeEmail').value.trim();
+    const code  = document.getElementById('intakeCode').value.trim();
+    const phone = document.getElementById('intakePhone').value.trim();
+    const errEl = document.getElementById('intakeError');
+
+    errEl.style.display = 'none';
+
+    if (!name || !email || !phone || !selectedChannel) {
+      errEl.textContent = 'Please fill in all fields and select a channel.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const btn = document.getElementById('intakeSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+
+    try {
+      const res = await fetch('/client/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: name,
+          email:     email,
+          phone:     code + phone.replace(/\s/g, ''),
+          channel:   selectedChannel,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        closeNewIntakeModal();
+        window.location.reload();
+      } else {
+        errEl.textContent = data.error || 'Failed to create intake.';
+        errEl.style.display = 'block';
+      }
+    } catch {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Start Intake';
+    }
+  }
+</script>
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

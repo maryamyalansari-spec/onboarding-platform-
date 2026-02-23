@@ -1,0 +1,231 @@
+{% extends "admin/_base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block extra_css %}
+<style>
+  .audit-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .audit-toolbar input[type="text"] {
+    flex: 1; min-width: 180px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border); border-radius: 3px;
+    background: var(--surface); color: var(--text);
+    font-size: 0.82rem;
+  }
+  .audit-toolbar select {
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border); border-radius: 3px;
+    background: var(--surface); color: var(--text);
+    font-size: 0.82rem;
+  }
+  .audit-toolbar input:focus,
+  .audit-toolbar select:focus { outline: none; border-color: var(--blue); }
+
+  /* Log table */
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+  .log-table th {
+    font-family: monospace; font-size: 0.58rem;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-muted);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    background: var(--surface);
+  }
+  .log-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    word-break: break-word;
+  }
+  .log-table tr:last-child td { border-bottom: none; }
+  .log-table tr:hover td { background: var(--surface-2); }
+
+  .log-time {
+    font-family: monospace;
+    font-size: 0.67rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .log-action { max-width: 480px; }
+  .log-type {
+    font-family: monospace; font-size: 0.65rem;
+    color: var(--blue);
+  }
+
+  /* Pagination */
+  .pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 1rem; font-size: 0.78rem; color: var(--text-muted);
+  }
+  .pagination-btns { display: flex; gap: 0.4rem; }
+  .pg-btn {
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--border); border-radius: 3px;
+    background: var(--surface); color: var(--text);
+    font-size: 0.75rem; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .pg-btn:hover:not(:disabled) { background: var(--surface-2); }
+  .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pg-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  .empty-note {
+    font-size: 0.78rem; color: var(--text-muted);
+    padding: 2rem 0; text-align: center; font-style: italic;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="audit-toolbar">
+  <input type="text" id="search-input" placeholder="Search actions…" oninput="debounceLoad()" />
+  <select id="type-filter" onchange="loadLogs()">
+    <option value="">All types</option>
+    <option value="client">Client</option>
+    <option value="conflict">Conflict</option>
+    <option value="engagement_letter">Engagement Letter</option>
+    <option value="kyc">KYC</option>
+    <option value="calendly_booking">Calendly</option>
+    <option value="document">Document</option>
+  </select>
+  <button class="btn btn-sm btn-secondary" onclick="loadLogs()">Refresh</button>
+  <span id="total-label" style="font-size:0.75rem;color:var(--text-muted);"></span>
+</div>
+
+<div class="card" style="overflow-x:auto;">
+  <table class="log-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Action</th>
+        <th>Type</th>
+        <th>Record ID</th>
+        <th>Performed By</th>
+      </tr>
+    </thead>
+    <tbody id="log-body">
+      <tr><td colspan="5" class="empty-note">Loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="pagination">
+  <span id="page-info">—</span>
+  <div class="pagination-btns" id="pg-btns"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let _page = 1;
+const PER_PAGE = 50;
+let _debounceTimer = null;
+
+function debounceLoad() {
+  clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(() => { _page = 1; loadLogs(); }, 300);
+}
+
+async function loadLogs() {
+  const search     = document.getElementById("search-input").value.trim();
+  const recordType = document.getElementById("type-filter").value;
+  const body       = document.getElementById("log-body");
+
+  body.innerHTML = '<tr><td colspan="5" class="empty-note">Loading…</td></tr>';
+
+  const params = new URLSearchParams({
+    page: _page, per_page: PER_PAGE,
+  });
+  if (search)     params.set("search",      search);
+  if (recordType) params.set("record_type", recordType);
+
+  try {
+    const r = await fetch(`/admin/audit-data?${params.toString()}`);
+    const d = await r.json();
+
+    if (!d.ok || !d.data.logs.length) {
+      body.innerHTML = '<tr><td colspan="5" class="empty-note">No audit entries found.</td></tr>';
+      document.getElementById("total-label").textContent = "0 entries";
+      document.getElementById("page-info").textContent   = "";
+      document.getElementById("pg-btns").innerHTML = "";
+      return;
+    }
+
+    const total = d.data.total;
+    const pages = Math.ceil(total / PER_PAGE);
+    document.getElementById("total-label").textContent = `${total.toLocaleString()} entries`;
+    document.getElementById("page-info").textContent   = `Page ${_page} of ${pages}`;
+
+    body.innerHTML = d.data.logs.map(log => `
+      <tr>
+        <td class="log-time">${fmtDate(log.timestamp)}</td>
+        <td class="log-action">${escHtml(log.action)}</td>
+        <td class="log-type">${escHtml(log.record_type || "—")}</td>
+        <td style="font-family:monospace;font-size:0.62rem;color:var(--text-muted);">${
+          log.record_id ? escHtml(log.record_id.substring(0,8)) + "…" : "—"}</td>
+        <td style="font-size:0.72rem;color:var(--text-muted);">${
+          log.performed_by ? escHtml(log.performed_by.substring(0,8)) + "…" : "System"}</td>
+      </tr>
+    `).join("");
+
+    // Pagination buttons
+    const pgDiv = document.getElementById("pg-btns");
+    pgDiv.innerHTML = "";
+    const prevBtn = document.createElement("button");
+    prevBtn.className = "pg-btn";
+    prevBtn.textContent = "← Prev";
+    prevBtn.disabled = _page <= 1;
+    prevBtn.onclick = () => { _page--; loadLogs(); };
+    pgDiv.appendChild(prevBtn);
+
+    // Show up to 5 page buttons around current
+    const start = Math.max(1, _page - 2);
+    const end   = Math.min(pages, _page + 2);
+    for (let p = start; p <= end; p++) {
+      const btn = document.createElement("button");
+      btn.className = "pg-btn" + (p === _page ? " active" : "");
+      btn.textContent = p;
+      btn.onclick = ((pg) => () => { _page = pg; loadLogs(); })(p);
+      pgDiv.appendChild(btn);
+    }
+
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "pg-btn";
+    nextBtn.textContent = "Next →";
+    nextBtn.disabled = _page >= pages;
+    nextBtn.onclick = () => { _page++; loadLogs(); };
+    pgDiv.appendChild(nextBtn);
+
+  } catch(e) {
+    body.innerHTML = `<tr><td colspan="5" class="empty-note">Error loading logs: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })
+    + " " + d.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
+}
+
+function escHtml(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+loadLogs();
+</script>
+{% endblock %}

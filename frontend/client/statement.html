@@ -1,0 +1,987 @@
+{% extends "client/_base.html" %}
+{% set current_step = 3 %}
+
+{% block title %}Your Statement{% endblock %}
+
+{% block extra_css %}
+<style>
+
+  /* ── Page card ─────────────────────────────────────────── */
+  .portal-card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 0.3rem; }
+  .portal-card .subtitle {
+    font-size: 0.8rem; color: var(--text-muted);
+    margin-bottom: 1.75rem; line-height: 1.5;
+  }
+
+  /* ── Confirmed statement summary ───────────────────────── */
+  .stmt-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    background: var(--green-bg);
+    border: 1px solid var(--green);
+    border-radius: 3px;
+    margin-bottom: 1rem;
+  }
+  .stmt-summary-check {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--green); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; font-weight: 700; flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .stmt-summary-body { flex: 1; min-width: 0; }
+  .stmt-summary-label {
+    font-family: monospace; font-size: 0.6rem;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--green); margin-bottom: 0.3rem;
+  }
+  .stmt-summary-text {
+    font-size: 0.82rem; color: var(--text);
+    line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  /* ── Active block wrapper ───────────────────────────────── */
+  .stmt-block {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+  .stmt-block-header {
+    padding: 0.75rem 1rem;
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .stmt-block-label {
+    font-family: monospace; font-size: 0.62rem;
+    text-transform: uppercase; letter-spacing: 0.13em; color: var(--text-muted);
+  }
+  .stmt-block-body { padding: 1rem; }
+
+  /* ── Mode selector ──────────────────────────────────────── */
+  .mode-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    margin-bottom: 0;
+  }
+  .mode-card {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0.5rem; padding: 1rem 0.75rem;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    text-align: center;
+  }
+  .mode-card:hover { border-color: var(--text-muted); }
+  .mode-card.selected-type  { border-color: var(--blue);  background: var(--blue-bg);  }
+  .mode-card.selected-voice { border-color: var(--green); background: var(--green-bg); }
+  .mode-card svg { opacity: 0.5; transition: opacity 0.15s; }
+  .mode-card:hover svg, .mode-card.selected-type svg,
+  .mode-card.selected-voice svg { opacity: 1; }
+  .mode-card-title {
+    font-size: 0.82rem; font-weight: 600; color: var(--text);
+  }
+  .mode-card-sub {
+    font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;
+  }
+
+  /* ── Text mode ──────────────────────────────────────────── */
+  .text-mode { display: flex; flex-direction: column; gap: 0.75rem; }
+  .stmt-textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.75rem;
+    color: var(--text);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 120px;
+    width: 100%;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.15s;
+  }
+  .stmt-textarea:focus { border-color: var(--blue); }
+  .stmt-textarea::placeholder { color: var(--text-muted); opacity: 0.45; }
+  .char-count {
+    font-family: monospace; font-size: 0.62rem;
+    color: var(--text-muted); text-align: right;
+  }
+
+  /* ── Voice mode ─────────────────────────────────────────── */
+  .voice-mode { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  /* State cards */
+  .voice-idle, .voice-recording, .voice-processing,
+  .voice-transcribed { display: none; flex-direction: column; gap: 0.75rem; }
+  .voice-idle.active, .voice-recording.active, .voice-processing.active,
+  .voice-transcribed.active { display: flex; }
+
+  /* Idle state — "Start Recording" */
+  .record-start-btn {
+    display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+    padding: 0.85rem;
+    background: var(--bg);
+    border: 1.5px dashed var(--border);
+    border-radius: 3px; cursor: pointer;
+    font-family: monospace; font-size: 0.68rem;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-muted);
+    transition: border-color 0.15s, color 0.15s;
+    width: 100%;
+  }
+  .record-start-btn:hover { border-color: var(--red); color: var(--red); }
+  .record-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--red);
+    flex-shrink: 0;
+  }
+
+  /* Recording state */
+  .recording-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .recording-indicator {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-family: monospace; font-size: 0.68rem;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--red);
+  }
+  .recording-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+    animation: pulse-dot 1s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.3; transform: scale(0.8); }
+  }
+  .recording-timer {
+    font-family: monospace; font-size: 0.72rem; color: var(--text-muted);
+  }
+
+  /* Waveform canvas */
+  .waveform-wrap {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    height: 64px;
+  }
+  .waveform-wrap canvas { width: 100%; height: 100%; display: block; }
+
+  /* Stop button */
+  .stop-btn {
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.65rem;
+    background: var(--red-bg);
+    border: 1px solid var(--red);
+    border-radius: 3px; cursor: pointer;
+    font-family: monospace; font-size: 0.68rem;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--red);
+    width: 100%; transition: opacity 0.15s;
+  }
+  .stop-btn:hover { opacity: 0.8; }
+  .stop-icon {
+    width: 10px; height: 10px; background: var(--red); border-radius: 1px; flex-shrink: 0;
+  }
+
+  /* Processing state */
+  .processing-msg {
+    display: flex; align-items: center; gap: 0.65rem;
+    padding: 0.85rem; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 3px;
+    font-size: 0.8rem; color: var(--text-muted);
+  }
+  .processing-sub {
+    font-size: 0.72rem; color: var(--text-muted); line-height: 1.5;
+  }
+
+  /* Transcription review */
+  .transcription-label {
+    font-family: monospace; font-size: 0.62rem;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted);
+    margin-bottom: 0.35rem;
+  }
+  .edit-hint {
+    font-size: 0.72rem; color: var(--text-muted);
+    display: flex; align-items: center; gap: 0.35rem;
+    margin-bottom: 0.4rem;
+  }
+
+  /* ── Confirm button ─────────────────────────────────────── */
+  .confirm-btn {
+    width: 100%; padding: 0.65rem;
+    background: var(--text); color: var(--bg);
+    border: none; border-radius: 3px; cursor: pointer;
+    font-family: monospace; font-size: 0.68rem;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    transition: opacity 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  }
+  .confirm-btn:hover:not(:disabled) { opacity: 0.85; }
+  .confirm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Block error ────────────────────────────────────────── */
+  .block-error {
+    display: none; background: var(--red-bg); border: 1px solid var(--red);
+    border-radius: 3px; padding: 0.55rem 0.75rem;
+    color: var(--red); font-size: 0.78rem; margin-top: 0.5rem;
+  }
+  .block-error.visible { display: block; }
+
+  /* ── Add more prompt ────────────────────────────────────── */
+  .add-more-prompt {
+    padding: 1rem;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    display: none;
+  }
+  .add-more-prompt.visible { display: block; }
+  .add-more-question {
+    font-size: 0.85rem; color: var(--text);
+    margin-bottom: 0.75rem; line-height: 1.5;
+  }
+  .add-more-count {
+    font-family: monospace; font-size: 0.62rem;
+    color: var(--text-muted); display: block; margin-top: 0.2rem;
+  }
+  .add-more-btns { display: flex; gap: 0.65rem; }
+  .add-more-yes {
+    flex: 1; padding: 0.55rem;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 3px; cursor: pointer;
+    font-family: monospace; font-size: 0.65rem;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .add-more-yes:hover { border-color: var(--text); color: var(--text); }
+  .add-more-no {
+    flex: 1; padding: 0.55rem;
+    background: transparent; border: 1px solid transparent;
+    border-radius: 3px; cursor: pointer;
+    font-family: monospace; font-size: 0.65rem;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted);
+  }
+  .add-more-no:hover { color: var(--text); }
+
+  /* ── Max reached notice ─────────────────────────────────── */
+  .max-reached-notice {
+    display: none; padding: 0.75rem 0.85rem;
+    background: var(--bg-sidebar); border: 1px solid var(--border);
+    border-radius: 3px; margin-bottom: 1rem;
+    font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;
+  }
+  .max-reached-notice.visible { display: block; }
+
+  /* ── Continue button ────────────────────────────────────── */
+  .continue-row { margin-top: 1.5rem; }
+  .btn-continue {
+    width: 100%; padding: 0.7rem 1rem;
+    background: var(--text); color: var(--bg);
+    border: none; border-radius: 3px; cursor: pointer;
+    font-family: monospace; font-size: 0.7rem;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    transition: opacity 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  }
+  .btn-continue:hover:not(:disabled) { opacity: 0.85; }
+  .btn-continue:disabled { opacity: 0.4; cursor: not-allowed; }
+  .continue-hint {
+    font-size: 0.72rem; color: var(--text-muted);
+    text-align: center; margin-top: 0.4rem;
+  }
+
+  /* ── Page error banner ──────────────────────────────────── */
+  .page-error {
+    display: none; background: var(--red-bg); border: 1px solid var(--red);
+    border-radius: 3px; padding: 0.65rem 0.85rem;
+    color: var(--red); font-size: 0.82rem; margin-bottom: 1rem;
+  }
+  .page-error.visible { display: block; }
+
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- Flask context injected as JS constants -->
+<script>
+  const CLIENT_REFERENCE = {{ client.reference_id | tojson }};
+  const CLIENT_ID        = {{ client.client_id    | tojson }};
+  const PORTAL_TOKEN     = {{ token               | tojson }};
+  const MAX_STATEMENTS   = 3;
+
+  const API = {
+    textSubmit:     () => `/client/statement/text?token=${PORTAL_TOKEN}`,
+    audioUpload:    () => `/client/statement/audio?token=${PORTAL_TOKEN}`,
+    transcription:  (id) => `/client/statement/${id}/transcription?token=${PORTAL_TOKEN}`,
+    confirm:        (id) => `/client/statement/${id}/confirm?token=${PORTAL_TOKEN}`,
+    list:           () => `/client/statement/list?token=${PORTAL_TOKEN}`,
+    complete:       () => `/client/statement/complete?token=${PORTAL_TOKEN}`,
+  };
+</script>
+
+<div class="portal-card">
+
+  <h2>Your Statement</h2>
+  <p class="subtitle">
+    Tell us about your situation in your own words. You can type or record
+    a voice note — whichever feels easier. You can provide up to 3 statements.
+  </p>
+
+  <div class="page-error" id="pageError"></div>
+
+  <!-- Confirmed summaries and active blocks rendered here -->
+  <div id="statementsContainer"></div>
+
+  <!-- "Add more?" prompt (shown after each confirmation, if < 3) -->
+  <div class="add-more-prompt" id="addMorePrompt">
+    <p class="add-more-question">
+      Is there anything else you would like to add?
+      <span class="add-more-count" id="addMoreCount"></span>
+    </p>
+    <div class="add-more-btns">
+      <button class="add-more-yes" onclick="addNextBlock()">Yes, add more</button>
+      <button class="add-more-no"  onclick="skipAddMore()">No, I'm done</button>
+    </div>
+  </div>
+
+  <!-- Maximum reached notice -->
+  <div class="max-reached-notice" id="maxReachedNotice">
+    You have provided the maximum of 3 statements. Your lawyer will follow up
+    if they need any additional information.
+  </div>
+
+  <!-- Continue to Step 4 -->
+  <div class="continue-row">
+    <button class="btn-continue" id="continueBtn" onclick="handleContinue()" disabled>
+      Continue to Documents
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 3l5 5-5 5"/>
+      </svg>
+    </button>
+    <p class="continue-hint" id="continueHint">Confirm at least one statement to continue.</p>
+  </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="/static/js/recorder.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════
+//  State
+// ════════════════════════════════════════════════════════════
+
+let confirmedCount  = 0;   // statements fully confirmed
+let activeBlockIdx  = null; // currently open block index (0-based)
+let blockStates     = {};  // idx → { mode, stmtId, recorder, timerInterval, pollInterval }
+let skipToDocuments = false; // set when user clicks "No, I'm done"
+
+// ════════════════════════════════════════════════════════════
+//  Init
+// ════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Restore existing statements from server (returning client)
+  try {
+    const res  = await fetch(API.list());
+    const data = await res.json();
+    if (data.success) {
+      const existing = data.data.statements.filter(s => s.confirmed);
+      confirmedCount = existing.length;
+      for (const s of existing) {
+        appendSummaryCard(s.sequence_number, s.client_edited_text);
+      }
+      if (confirmedCount > 0) updateAfterConfirm();
+    }
+  } catch { /* fresh client */ }
+
+  // Always start with one active block if nothing confirmed yet
+  if (confirmedCount === 0) {
+    addBlock();
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+//  Block lifecycle
+// ════════════════════════════════════════════════════════════
+
+function addBlock() {
+  const idx = Object.keys(blockStates).length;
+  activeBlockIdx = idx;
+  blockStates[idx] = { mode: null, stmtId: null, recorder: null, timerInterval: null, pollInterval: null };
+
+  // Hide "add more" prompt while a block is open
+  document.getElementById('addMorePrompt').classList.remove('visible');
+  document.getElementById('maxReachedNotice').classList.remove('visible');
+
+  const container = document.getElementById('statementsContainer');
+  const blockEl   = buildBlockEl(idx);
+  container.appendChild(blockEl);
+}
+
+function addNextBlock() {
+  if (confirmedCount >= MAX_STATEMENTS) return;
+  addBlock();
+  // Scroll new block into view
+  const el = document.getElementById(`block-${activeBlockIdx}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function skipAddMore() {
+  document.getElementById('addMorePrompt').classList.remove('visible');
+  skipToDocuments = true;
+  updateContinueBtn();
+}
+
+// ════════════════════════════════════════════════════════════
+//  Block DOM builder
+// ════════════════════════════════════════════════════════════
+
+function buildBlockEl(idx) {
+  const num = confirmedCount + 1;
+  const label = num === 1 ? 'Statement' : `Statement ${num}`;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'stmt-block';
+  wrapper.id        = `block-${idx}`;
+
+  wrapper.innerHTML = `
+    <div class="stmt-block-header">
+      <span class="stmt-block-label">${label}</span>
+    </div>
+    <div class="stmt-block-body">
+
+      <!-- Mode selector -->
+      <div class="mode-selector" id="modeSelector-${idx}">
+        <div class="mode-card" id="modeType-${idx}" onclick="selectMode(${idx}, 'type')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 6h18M3 12h12M3 18h8"/>
+            <path d="M18 14v6M15 17l3-3 3 3"/>
+          </svg>
+          <span class="mode-card-title">Type</span>
+          <span class="mode-card-sub">Write your statement</span>
+        </div>
+        <div class="mode-card" id="modeVoice-${idx}" onclick="selectMode(${idx}, 'voice')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <path d="M12 19v3M8 22h8"/>
+          </svg>
+          <span class="mode-card-title">Voice Note</span>
+          <span class="mode-card-sub">Record and review</span>
+        </div>
+      </div>
+
+      <!-- ── TYPE MODE ───────────────────────────────── -->
+      <div class="text-mode" id="textMode-${idx}" style="display:none; margin-top:0.85rem">
+        <textarea
+          class="stmt-textarea"
+          id="textArea-${idx}"
+          placeholder="Describe your situation in your own words. Include any relevant dates, names, or events…"
+          oninput="updateCharCount(${idx})"
+        ></textarea>
+        <div style="display:flex; justify-content:space-between; align-items:center">
+          <span class="char-count" id="charCount-${idx}">0 characters</span>
+        </div>
+        <button class="confirm-btn" id="confirmBtn-${idx}" onclick="confirmTextStatement(${idx})">
+          Confirm Statement
+        </button>
+      </div>
+
+      <!-- ── VOICE MODE ──────────────────────────────── -->
+      <div class="voice-mode" id="voiceMode-${idx}" style="display:none; margin-top:0.85rem">
+
+        <!-- Idle: start recording -->
+        <div class="voice-idle active" id="voiceIdle-${idx}">
+          <button class="record-start-btn" onclick="startRecording(${idx})">
+            <span class="record-dot"></span>
+            Start Recording
+          </button>
+          <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;line-height:1.4">
+            Your browser will ask for microphone permission. Speak clearly and
+            take your time. You can review and edit before confirming.
+          </p>
+        </div>
+
+        <!-- Recording -->
+        <div class="voice-recording" id="voiceRecording-${idx}">
+          <div class="recording-header">
+            <div class="recording-indicator">
+              <span class="recording-dot"></span>
+              Recording
+            </div>
+            <span class="recording-timer" id="timer-${idx}">0:00</span>
+          </div>
+          <div class="waveform-wrap">
+            <canvas id="waveform-${idx}" width="500" height="64"></canvas>
+          </div>
+          <button class="stop-btn" onclick="stopRecording(${idx})">
+            <span class="stop-icon"></span>
+            Stop Recording
+          </button>
+        </div>
+
+        <!-- Processing / uploading -->
+        <div class="voice-processing" id="voiceProcessing-${idx}">
+          <div class="processing-msg">
+            <div class="spinner"></div>
+            <div>
+              <div style="font-weight:500;color:var(--text)">Processing your voice note…</div>
+              <div class="processing-sub" id="processingSubtxt-${idx}">
+                Uploading audio…
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transcribed: review & edit -->
+        <div class="voice-transcribed" id="voiceTranscribed-${idx}">
+          <div>
+            <div class="transcription-label">Transcription</div>
+            <div class="edit-hint">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M11 2l3 3-9 9H2v-3L11 2z"/>
+              </svg>
+              Review and edit freely before confirming.
+            </div>
+            <textarea
+              class="stmt-textarea"
+              id="transcriptArea-${idx}"
+              placeholder="Your transcription will appear here…"
+              oninput="updateCharCount(${idx})"
+            ></textarea>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="char-count" id="charCount-${idx}"></span>
+            <button
+              class="btn btn-secondary btn-sm"
+              onclick="reRecord(${idx})"
+              style="font-size:0.6rem">
+              Re-record
+            </button>
+          </div>
+          <button class="confirm-btn" id="confirmBtn-${idx}" onclick="confirmVoiceStatement(${idx})">
+            Confirm Statement
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Block-level error -->
+      <div class="block-error" id="blockError-${idx}"></div>
+
+    </div>
+  `;
+
+  return wrapper;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Mode selection
+// ════════════════════════════════════════════════════════════
+
+function selectMode(idx, mode) {
+  blockStates[idx].mode = mode;
+
+  // Update mode card styles
+  const typeCard  = document.getElementById(`modeType-${idx}`);
+  const voiceCard = document.getElementById(`modeVoice-${idx}`);
+  typeCard.className  = `mode-card${mode === 'type'  ? ' selected-type'  : ''}`;
+  voiceCard.className = `mode-card${mode === 'voice' ? ' selected-voice' : ''}`;
+
+  // Show/hide mode panels
+  document.getElementById(`textMode-${idx}`).style.display  = mode === 'type'  ? 'flex' : 'none';
+  document.getElementById(`voiceMode-${idx}`).style.display = mode === 'voice' ? 'flex' : 'none';
+
+  // If switching away from voice while recording, stop recorder
+  if (mode === 'type') {
+    const state = blockStates[idx];
+    if (state.recorder?.isRecording) state.recorder.stop();
+    clearTimerAndPoll(idx);
+  }
+
+  clearBlockError(idx);
+}
+
+// ════════════════════════════════════════════════════════════
+//  Text mode
+// ════════════════════════════════════════════════════════════
+
+function updateCharCount(idx) {
+  const ta   = document.getElementById(`textArea-${idx}`) ||
+               document.getElementById(`transcriptArea-${idx}`);
+  const cnt  = document.getElementById(`charCount-${idx}`);
+  if (!ta || !cnt) return;
+  const len = ta.value.length;
+  cnt.textContent = `${len.toLocaleString()} character${len !== 1 ? 's' : ''}`;
+}
+
+async function confirmTextStatement(idx) {
+  clearBlockError(idx);
+  const ta   = document.getElementById(`textArea-${idx}`);
+  const text = (ta?.value || '').trim();
+
+  if (text.length < 10) {
+    showBlockError(idx, 'Please write at least a sentence before confirming.');
+    return;
+  }
+
+  setConfirmBtnLoading(idx, true);
+
+  try {
+    const res  = await fetch(API.textSubmit(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Could not save.');
+
+    blockStates[idx].stmtId = data.data.statement_id;
+    finaliseBlock(idx, text);
+
+  } catch (err) {
+    showBlockError(idx, err.message || 'Something went wrong. Please try again.');
+  } finally {
+    setConfirmBtnLoading(idx, false);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Voice mode
+// ════════════════════════════════════════════════════════════
+
+function setVoiceState(idx, state) {
+  ['Idle','Recording','Processing','Transcribed'].forEach(s => {
+    const el = document.getElementById(`voice${s}-${idx}`);
+    if (el) el.className = `voice-${s.toLowerCase()}${state === s.toLowerCase() ? ' active' : ''}`;
+  });
+}
+
+async function startRecording(idx) {
+  const state = blockStates[idx];
+
+  const recorder = new AudioRecorder({
+    canvasId: `waveform-${idx}`,
+    onStop:   (blob) => handleAudioStopped(idx, blob),
+  });
+
+  state.recorder = recorder;
+  setVoiceState(idx, 'recording');
+
+  // Start timer
+  let secs = 0;
+  const timerEl = document.getElementById(`timer-${idx}`);
+  state.timerInterval = setInterval(() => {
+    secs++;
+    const m = Math.floor(secs / 60);
+    const s = String(secs % 60).padStart(2, '0');
+    if (timerEl) timerEl.textContent = `${m}:${s}`;
+  }, 1000);
+
+  await recorder.start();
+}
+
+function stopRecording(idx) {
+  const state = blockStates[idx];
+  if (state.recorder?.isRecording) {
+    state.recorder.stop();
+  }
+  clearInterval(state.timerInterval);
+  state.timerInterval = null;
+}
+
+async function handleAudioStopped(idx, blob) {
+  setVoiceState(idx, 'processing');
+  const subEl = document.getElementById(`processingSubtxt-${idx}`);
+
+  // Upload audio file
+  const formData = new FormData();
+  formData.append('audio_file', blob, `statement.webm`);
+
+  try {
+    if (subEl) subEl.textContent = 'Uploading audio…';
+
+    const res  = await fetch(API.audioUpload(), { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) throw new Error(data.error || 'Upload failed.');
+
+    const stmtId = data.data.statement_id;
+    blockStates[idx].stmtId = stmtId;
+
+    if (subEl) subEl.textContent = 'Transcribing… this may take a moment.';
+
+    // Poll for transcription (Step 14 will make this fast)
+    await pollTranscription(idx, stmtId);
+
+  } catch (err) {
+    setVoiceState(idx, 'idle');
+    showBlockError(idx, err.message || 'Upload failed. Please try again or type your statement.');
+  }
+}
+
+async function pollTranscription(idx, stmtId) {
+  const MAX_POLLS = 30;  // 30 × 2s = 60s timeout
+  let   polls     = 0;
+
+  const state = blockStates[idx];
+
+  const poll = async () => {
+    if (polls++ >= MAX_POLLS) {
+      // Timed out — let client type manually
+      setVoiceState(idx, 'transcribed');
+      const ta = document.getElementById(`transcriptArea-${idx}`);
+      if (ta) ta.placeholder = 'Transcription is taking longer than expected. You can type or paste your statement here.';
+      return;
+    }
+
+    try {
+      const res  = await fetch(API.transcription(stmtId));
+      const data = await res.json();
+
+      if (data.success && data.data.status === 'done' && data.data.text) {
+        // Transcription ready
+        setVoiceState(idx, 'transcribed');
+        const ta = document.getElementById(`transcriptArea-${idx}`);
+        if (ta) {
+          ta.value = data.data.text;
+          updateCharCount(idx);
+        }
+        return;
+      }
+    } catch { /* keep polling */ }
+
+    // Schedule next poll
+    state.pollInterval = setTimeout(poll, 2000);
+  };
+
+  await poll();
+}
+
+async function confirmVoiceStatement(idx) {
+  clearBlockError(idx);
+  const ta   = document.getElementById(`transcriptArea-${idx}`);
+  const text = (ta?.value || '').trim();
+  const stmtId = blockStates[idx].stmtId;
+
+  if (text.length < 5) {
+    showBlockError(idx, 'Please review and confirm your statement before continuing.');
+    return;
+  }
+
+  setConfirmBtnLoading(idx, true);
+
+  try {
+    let res, data;
+
+    if (stmtId) {
+      // Confirm (and update) the existing audio statement
+      res  = await fetch(API.confirm(stmtId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_edited_text: text }),
+      });
+      data = await res.json();
+    } else {
+      // Fallback: save as text statement (if audio upload succeeded but no stmtId)
+      res  = await fetch(API.textSubmit(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      data = await res.json();
+    }
+
+    if (!res.ok || !data.success) throw new Error(data.error || 'Could not save.');
+
+    finaliseBlock(idx, text);
+
+  } catch (err) {
+    showBlockError(idx, err.message || 'Something went wrong. Please try again.');
+  } finally {
+    setConfirmBtnLoading(idx, false);
+  }
+}
+
+function reRecord(idx) {
+  clearTimerAndPoll(idx);
+  const state = blockStates[idx];
+  state.stmtId = null;
+  const ta = document.getElementById(`transcriptArea-${idx}`);
+  if (ta) ta.value = '';
+  setVoiceState(idx, 'idle');
+}
+
+// ════════════════════════════════════════════════════════════
+//  Finalise confirmed block → collapse to summary
+// ════════════════════════════════════════════════════════════
+
+function finaliseBlock(idx, text) {
+  confirmedCount++;
+  clearTimerAndPoll(idx);
+
+  // Replace the block with a summary card
+  const blockEl = document.getElementById(`block-${idx}`);
+  if (blockEl) {
+    blockEl.outerHTML = buildSummaryCardHtml(confirmedCount, text);
+  }
+
+  activeBlockIdx = null;
+  updateAfterConfirm();
+}
+
+function appendSummaryCard(num, text) {
+  const container = document.getElementById('statementsContainer');
+  const div = document.createElement('div');
+  div.innerHTML = buildSummaryCardHtml(num, text);
+  container.appendChild(div.firstChild);
+}
+
+function buildSummaryCardHtml(num, text) {
+  const label = num === 1 ? 'Statement' : `Statement ${num}`;
+  const preview = escHtml(text.length > 160 ? text.slice(0, 157) + '…' : text);
+  return `
+    <div class="stmt-summary" id="summary-${num}">
+      <div class="stmt-summary-check">✓</div>
+      <div class="stmt-summary-body">
+        <div class="stmt-summary-label">${label} confirmed</div>
+        <div class="stmt-summary-text">${preview}</div>
+      </div>
+    </div>`;
+}
+
+function updateAfterConfirm() {
+  const addPrompt    = document.getElementById('addMorePrompt');
+  const maxNotice    = document.getElementById('maxReachedNotice');
+  const countEl      = document.getElementById('addMoreCount');
+
+  if (confirmedCount >= MAX_STATEMENTS) {
+    addPrompt.classList.remove('visible');
+    maxNotice.classList.add('visible');
+  } else if (confirmedCount > 0 && activeBlockIdx === null) {
+    const remaining = MAX_STATEMENTS - confirmedCount;
+    if (countEl) countEl.textContent = `${remaining} more allowed`;
+    addPrompt.classList.add('visible');
+    maxNotice.classList.remove('visible');
+  }
+
+  updateContinueBtn();
+}
+
+// ════════════════════════════════════════════════════════════
+//  Continue to Step 4
+// ════════════════════════════════════════════════════════════
+
+function updateContinueBtn() {
+  const btn     = document.getElementById('continueBtn');
+  const hint    = document.getElementById('continueHint');
+  const ready   = confirmedCount > 0 && (skipToDocuments || confirmedCount >= MAX_STATEMENTS || activeBlockIdx === null);
+
+  if (!btn) return;
+
+  if (confirmedCount === 0) {
+    btn.disabled   = true;
+    hint.textContent = 'Confirm at least one statement to continue.';
+  } else if (activeBlockIdx !== null) {
+    btn.disabled   = true;
+    hint.textContent = 'Confirm your current statement before continuing.';
+  } else {
+    btn.disabled   = false;
+    hint.textContent = '';
+  }
+}
+
+async function handleContinue() {
+  if (confirmedCount === 0) {
+    showPageError('Please provide at least one statement before continuing.');
+    return;
+  }
+  if (activeBlockIdx !== null) {
+    showPageError('Please confirm your current statement before continuing.');
+    return;
+  }
+
+  const btn = document.getElementById('continueBtn');
+  btn.disabled  = true;
+  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Please wait…`;
+
+  try {
+    const res  = await fetch(API.complete(), { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      window.location.href = data.data.next_url;
+    } else {
+      showPageError(data.error || 'Could not proceed. Please try again.');
+      btn.disabled  = false;
+      updateContinueBtn();
+    }
+  } catch {
+    showPageError('Network error. Please check your connection.');
+    btn.disabled = false;
+    updateContinueBtn();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Helpers
+// ════════════════════════════════════════════════════════════
+
+function setConfirmBtnLoading(idx, loading) {
+  const btn = document.getElementById(`confirmBtn-${idx}`);
+  if (!btn) return;
+  btn.disabled   = loading;
+  btn.innerHTML  = loading
+    ? `<div class="spinner" style="width:13px;height:13px;border-width:2px"></div> Saving…`
+    : 'Confirm Statement';
+}
+
+function showBlockError(idx, msg) {
+  const el = document.getElementById(`blockError-${idx}`);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function clearBlockError(idx) {
+  document.getElementById(`blockError-${idx}`)?.classList.remove('visible');
+}
+
+function showPageError(msg) {
+  const el = document.getElementById('pageError');
+  el.textContent = msg;
+  el.classList.add('visible');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearTimerAndPoll(idx) {
+  const state = blockStates[idx];
+  if (!state) return;
+  clearInterval(state.timerInterval);
+  clearTimeout(state.pollInterval);
+  state.timerInterval = null;
+  state.pollInterval  = null;
+}
+
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

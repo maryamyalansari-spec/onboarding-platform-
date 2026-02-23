@@ -1,0 +1,500 @@
+{% extends "admin/_base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Dashboard-specific layout ───────────────────────── */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+  }
+
+  @media (max-width: 1100px) {
+    .dashboard-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── Clients table row actions ───────────────────────── */
+  .score-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .score-fill {
+    height: 4px;
+    border-radius: 2px;
+    width: 60px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-fill-inner {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--text-muted);
+    transition: width 0.4s ease;
+  }
+
+  .score-fill-inner.score-green  { background: var(--green); }
+  .score-fill-inner.score-orange { background: var(--orange); }
+  .score-fill-inner.score-red    { background: var(--red); }
+
+  .score-val {
+    font-family: monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    min-width: 28px;
+  }
+
+  /* Conflict queue card items */
+  .queue-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+    border-radius: 3px;
+    margin: 0 -0.25rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+  .queue-item:last-child { border-bottom: none; }
+  .queue-item:hover { background: var(--card-hover); }
+
+  .queue-score-badge {
+    font-family: monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    min-width: 36px;
+    text-align: center;
+    padding: 2px 5px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .queue-score-badge.exact  { background: var(--red-bg);    color: var(--red); }
+  .queue-score-badge.strong { background: var(--orange-bg); color: var(--orange); }
+  .queue-score-badge.soft   { background: var(--blue-bg);   color: var(--blue); }
+
+  .queue-name {
+    flex: 1;
+    font-size: 0.82rem;
+    font-weight: 500;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .queue-ref {
+    font-family: monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+  }
+
+  /* Page header actions */
+  .page-actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  /* Status badge helper (JS applies these) */
+  .status-pending        { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange); }
+  .status-id_uploaded    { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue);   }
+  .status-conflict_check { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue);   }
+  .status-manual_review  { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red);    }
+  .status-context_collection { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue); }
+  .status-review         { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange); }
+  .status-approved       { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green);  }
+  .status-rejected       { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red);    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ── Page header ──────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Dashboard</span>
+    <span class="text-muted" style="font-size:0.75rem" id="firmName">{{ session.get('firm_name', '') }}</span>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-secondary btn-sm" onclick="loadDashboard()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M1 8a7 7 0 1 0 2-5"/>
+        <path d="M1 3v5h5"/>
+      </svg>
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="openNewIntakeModal()">
+      + New Intake
+    </button>
+  </div>
+</div>
+
+<!-- ── Stat cards ───────────────────────────────────────────── -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <span class="stat-card-label">Total Clients</span>
+    <span class="stat-card-value blue" id="stat-total">—</span>
+    <span class="stat-card-sub">all channels</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-card-label">Pending Review</span>
+    <span class="stat-card-value orange" id="stat-pending">—</span>
+    <span class="stat-card-sub">awaiting action</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-card-label">Conflicts Found</span>
+    <span class="stat-card-value red" id="stat-conflicts">—</span>
+    <span class="stat-card-sub">unresolved</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-card-label">Approved Today</span>
+    <span class="stat-card-value green" id="stat-approved">—</span>
+    <span class="stat-card-sub">{{ now.strftime('%d %b %Y') if now else '' }}</span>
+  </div>
+</div>
+
+<!-- ── Two-column grid: Activity + Conflict queue ───────────── -->
+<div class="dashboard-grid">
+
+  <!-- Left: Recent Activity -->
+  <div>
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header">
+        <span class="card-title">Recent Activity</span>
+        <a href="/admin/clients" style="font-family:monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted)">View all →</a>
+      </div>
+      <div class="activity-feed" id="activityFeed">
+        <div class="empty-state" style="padding:1.5rem 0">
+          <div class="spinner" style="margin:0 auto 0.75rem"></div>
+          <div class="empty-state-text">Loading activity…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent clients table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Recent Clients</span>
+        <a href="/admin/clients" style="font-family:monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted)">All clients →</a>
+      </div>
+
+      <!-- Search bar -->
+      <div style="margin-bottom:1rem">
+        <input
+          class="form-input"
+          id="clientSearch"
+          type="text"
+          placeholder="Search by name or reference…"
+          oninput="filterTable(this.value)"
+          style="max-width:320px"
+        />
+      </div>
+
+      <div class="table-wrap" id="clientsTableWrap">
+        <table id="clientsTable">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Channel</th>
+              <th>Status</th>
+              <th>Conflict</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="clientsTableBody">
+            <tr>
+              <td colspan="6">
+                <div class="empty-state" style="padding:1.5rem 0">
+                  <div class="spinner" style="margin:0 auto 0.75rem"></div>
+                  <div class="empty-state-text">Loading clients…</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Right: Conflict queue -->
+  <div>
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header">
+        <span class="card-title">Conflict Queue</span>
+        <span class="badge badge-orange" id="queueCount" style="display:none"></span>
+      </div>
+      <div id="conflictQueue">
+        <div class="empty-state" style="padding:1.5rem 0">
+          <div class="spinner" style="margin:0 auto 0.75rem"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Channel breakdown mini-card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Intake Channels</span>
+      </div>
+      <div id="channelBreakdown" style="display:flex;flex-direction:column;gap:0.75rem">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="badge badge-whatsapp">WhatsApp</span>
+          <span id="count-whatsapp" class="mono text-muted">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="badge badge-web">Web Portal</span>
+          <span id="count-web" class="mono text-muted">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+// ════════════════════════════════════════════════════════════
+//  Dashboard data loading
+// ════════════════════════════════════════════════════════════
+
+async function loadDashboard() {
+  await Promise.all([
+    loadStats(),
+    loadActivity(),
+    loadClients(),
+    loadConflictQueue(),
+  ]);
+}
+
+// ── Stats ─────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const res  = await fetch('/admin/stats');
+    const data = await res.json();
+    if (!data.success) return;
+    const s = data.data;
+    document.getElementById('stat-total').textContent     = s.total_clients     ?? 0;
+    document.getElementById('stat-pending').textContent   = s.pending_review    ?? 0;
+    document.getElementById('stat-conflicts').textContent = s.conflicts_found   ?? 0;
+    document.getElementById('stat-approved').textContent  = s.approved_today    ?? 0;
+
+    // Update sidebar badges
+    if (s.pending_review > 0) {
+      const b = document.getElementById('badge-pending');
+      b.textContent = s.pending_review;
+      b.style.display = '';
+    }
+    if (s.conflicts_pending > 0) {
+      const b = document.getElementById('badge-review');
+      b.textContent = s.conflicts_pending;
+      b.style.display = '';
+    }
+
+    // Channel breakdown
+    document.getElementById('count-whatsapp').textContent = s.channel_whatsapp ?? 0;
+    document.getElementById('count-web').textContent      = s.channel_web      ?? 0;
+
+  } catch (e) {
+    console.warn('Stats load failed:', e);
+  }
+}
+
+// ── Activity feed ─────────────────────────────────────────
+async function loadActivity() {
+  const container = document.getElementById('activityFeed');
+  try {
+    const res  = await fetch('/admin/activity');
+    const data = await res.json();
+    if (!data.success || !data.data.activity.length) {
+      container.innerHTML = `
+        <div class="empty-state" style="padding:1.5rem 0">
+          <div class="empty-state-title">No activity yet</div>
+          <div class="empty-state-text">Actions will appear here as they happen.</div>
+        </div>`;
+      return;
+    }
+    container.innerHTML = data.data.activity.map(item => `
+      <div class="activity-item">
+        <div class="activity-dot" style="background:${activityDotColor(item.action)}"></div>
+        <div class="activity-text">${escHtml(item.action)}</div>
+        <div class="activity-time">${relativeTime(item.timestamp)}</div>
+      </div>`).join('');
+  } catch {
+    container.innerHTML = `<div class="empty-state" style="padding:1rem 0"><div class="empty-state-text">Could not load activity.</div></div>`;
+  }
+}
+
+// ── Clients table ─────────────────────────────────────────
+let allClients = [];
+
+async function loadClients() {
+  const tbody = document.getElementById('clientsTableBody');
+  try {
+    const res  = await fetch('/admin/clients-data?limit=20');
+    const data = await res.json();
+    if (!data.success) throw new Error();
+    allClients = data.data.clients;
+    renderClientsTable(allClients);
+  } catch {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:1rem 0"><div class="empty-state-text">Could not load clients.</div></div></td></tr>`;
+  }
+}
+
+function renderClientsTable(clients) {
+  const tbody = document.getElementById('clientsTableBody');
+  if (!clients.length) {
+    tbody.innerHTML = `<tr><td colspan="6">
+      <div class="empty-state" style="padding:2rem 0">
+        <div class="empty-state-title">No clients yet</div>
+        <div class="empty-state-text">Use the New Intake button to add your first client.</div>
+      </div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = clients.map(c => `
+    <tr onclick="window.location='/admin/clients/${c.client_id}'" style="cursor:pointer">
+      <td>
+        <div class="td-name">${escHtml(c.full_name)}</div>
+        <div class="td-ref">${escHtml(c.reference_id)}</div>
+      </td>
+      <td>${channelBadge(c.channel)}</td>
+      <td>${statusBadge(c.status)}</td>
+      <td>${scoreBar(c.conflict_score)}</td>
+      <td><span class="mono text-muted">${formatDate(c.created_at)}</span></td>
+      <td class="td-actions">
+        <a href="/admin/clients/${c.client_id}" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">View</a>
+      </td>
+    </tr>`).join('');
+}
+
+function filterTable(query) {
+  const q = query.toLowerCase();
+  const filtered = allClients.filter(c =>
+    c.full_name.toLowerCase().includes(q) ||
+    c.reference_id.toLowerCase().includes(q)
+  );
+  renderClientsTable(filtered);
+}
+
+// ── Conflict queue ────────────────────────────────────────
+async function loadConflictQueue() {
+  const container = document.getElementById('conflictQueue');
+  try {
+    const res  = await fetch('/admin/conflict-queue');
+    const data = await res.json();
+    if (!data.success || !data.data.conflicts.length) {
+      container.innerHTML = `
+        <div class="empty-state" style="padding:1.5rem 0">
+          <div class="empty-state-title">No conflicts pending</div>
+          <div class="empty-state-text">All conflict checks are resolved.</div>
+        </div>`;
+      return;
+    }
+    const items = data.data.conflicts;
+    const badge = document.getElementById('queueCount');
+    badge.textContent = items.length;
+    badge.style.display = '';
+
+    container.innerHTML = items.map(c => `
+      <div class="queue-item" onclick="window.location='/admin/clients/${c.client_id}'">
+        <span class="queue-score-badge ${c.match_type}">${Math.round(c.confidence_score)}</span>
+        <div style="flex:1;min-width:0">
+          <div class="queue-name">${escHtml(c.full_name)}</div>
+          <div class="queue-ref">${escHtml(c.reference_id)}</div>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4;flex-shrink:0">
+          <path d="M6 3l5 5-5 5"/>
+        </svg>
+      </div>`).join('');
+  } catch {
+    container.innerHTML = `<div class="empty-state" style="padding:1rem 0"><div class="empty-state-text">Could not load queue.</div></div>`;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Helpers
+// ════════════════════════════════════════════════════════════
+
+function channelBadge(channel) {
+  if (channel === 'whatsapp') return '<span class="badge badge-whatsapp">WhatsApp</span>';
+  return '<span class="badge badge-web">Web</span>';
+}
+
+function statusBadge(status) {
+  const labels = {
+    pending:             'Pending',
+    id_uploaded:         'ID Uploaded',
+    conflict_check:      'Conflict Check',
+    manual_review:       'Manual Review',
+    context_collection:  'Statement',
+    review:              'In Review',
+    approved:            'Approved',
+    rejected:            'Rejected',
+  };
+  const label = labels[status] || status;
+  return `<span class="badge status-${status}">${label}</span>`;
+}
+
+function scoreBar(score) {
+  if (score === null || score === undefined) {
+    return '<span class="mono text-muted">—</span>';
+  }
+  const pct   = Math.min(100, Math.max(0, score));
+  const cls   = pct >= 80 ? 'score-red' : pct >= 50 ? 'score-orange' : pct >= 20 ? 'score-orange' : 'score-green';
+  return `
+    <div class="score-bar">
+      <div class="score-fill">
+        <div class="score-fill-inner ${cls}" style="width:${pct}%"></div>
+      </div>
+      <span class="score-val">${Math.round(pct)}</span>
+    </div>`;
+}
+
+function activityDotColor(action) {
+  const a = (action || '').toLowerCase();
+  if (a.includes('approved'))  return 'var(--green)';
+  if (a.includes('rejected'))  return 'var(--red)';
+  if (a.includes('conflict'))  return 'var(--orange)';
+  if (a.includes('logged in')) return 'var(--blue)';
+  return 'var(--text-muted)';
+}
+
+function relativeTime(isoStr) {
+  if (!isoStr) return '';
+  const diff = (Date.now() - new Date(isoStr).getTime()) / 1000;
+  if (diff < 60)   return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return formatDate(isoStr);
+}
+
+function formatDate(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Auto-load on page ready ───────────────────────────────
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+{% endblock %}

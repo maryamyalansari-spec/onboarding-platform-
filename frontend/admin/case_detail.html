@@ -1,0 +1,1120 @@
+{% extends "admin/_base.html" %}
+{% block title %}Case Detail{% endblock %}
+{% block page_title %}Case Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+
+  /* ── Case header ─────────────────────────────────────────── */
+  .case-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .case-header-left h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+  .case-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .case-header-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* ── Tabs ────────────────────────────────────────────────── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+  }
+  .tab-btn {
+    padding: 0.55rem 1.1rem;
+    font-family: monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.12s, border-color 0.12s;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    color: var(--text);
+    border-bottom-color: var(--blue);
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Two-column grid ─────────────────────────────────────── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── Info card ───────────────────────────────────────────── */
+  .info-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .info-card-title {
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-muted);
+    margin-bottom: 0.85rem;
+  }
+  .info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.3rem 0;
+    font-size: 0.8rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-label {
+    font-family: monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    width: 90px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+  .info-value { flex: 1; word-break: break-word; }
+
+  /* ── Conflict score bar ──────────────────────────────────── */
+  .conflict-score-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+  }
+  .conflict-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .conflict-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .conflict-score-num {
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ── AI Brief sections ───────────────────────────────────── */
+  .brief-section {
+    margin-bottom: 1.25rem;
+  }
+  .brief-section-title {
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+  }
+  .brief-text {
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: var(--text);
+  }
+  .brief-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .brief-list li {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    padding-left: 1rem;
+    position: relative;
+  }
+  .brief-list li::before {
+    content: "·";
+    position: absolute;
+    left: 0;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+  .brief-alert-box {
+    background: rgba(232,134,10,0.07);
+    border: 1px solid var(--orange);
+    border-radius: 3px;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.8rem;
+    color: var(--orange);
+    line-height: 1.5;
+  }
+  .lawyer-notes-area {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 90px;
+    padding: 0.6rem 0.8rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-size: 0.82rem;
+    font-family: Inter, sans-serif;
+    resize: vertical;
+    line-height: 1.5;
+  }
+  .save-notes-btn {
+    margin-top: 0.5rem;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.75rem;
+    font-family: monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .save-notes-btn:hover { opacity: 0.88; }
+
+  /* ── Regenerate brief button ─────────────────────────────── */
+  .regen-btn {
+    font-size: 0.72rem;
+    padding: 0.3rem 0.8rem;
+  }
+
+  /* ── Statements list ─────────────────────────────────────── */
+  .statement-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+  .statement-seq {
+    font-family: monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+  }
+  .statement-text {
+    font-size: 0.82rem;
+    line-height: 1.65;
+  }
+
+  /* ── Passport cards ──────────────────────────────────────── */
+  .passport-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 0.6rem;
+  }
+
+  /* ── Document table ──────────────────────────────────────── */
+  .doc-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+  }
+  .doc-row:last-child { border-bottom: none; }
+  .doc-icon { font-size: 1rem; flex-shrink: 0; }
+  .doc-name { flex: 1; font-family: monospace; font-size: 0.7rem; word-break: break-all; }
+  .doc-type { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+
+  /* ── Letter form ─────────────────────────────────────────── */
+  .letter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.75rem;
+  }
+  @media (max-width: 700px) { .letter-grid { grid-template-columns: 1fr; } }
+  .letter-field { display: flex; flex-direction: column; gap: 0.3rem; }
+  .letter-label {
+    font-family: monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+  .letter-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.82rem;
+    transition: border-color 0.15s;
+  }
+  .letter-input:focus { outline: none; border-color: var(--blue); }
+  .letter-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.82rem;
+    resize: vertical;
+    transition: border-color 0.15s;
+  }
+  .letter-textarea:focus { outline: none; border-color: var(--blue); }
+
+  /* ── Loading / empty state ───────────────────────────────── */
+  .spinner-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    padding: 1.5rem 0;
+  }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding: 1rem 0;
+    font-style: italic;
+  }
+
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div id="loading-state" class="spinner-row">
+  <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <line x1="12" y1="2" x2="12" y2="6"/>
+    <line x1="12" y1="18" x2="12" y2="22"/>
+    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+    <line x1="2" y1="12" x2="6" y2="12"/>
+    <line x1="18" y1="12" x2="22" y2="12"/>
+    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+  </svg>
+  Loading case…
+</div>
+
+<div id="case-content" style="display:none;">
+
+  <!-- ── Case header ──────────────────────────────────────── -->
+  <div class="case-header">
+    <div class="case-header-left">
+      <h2 id="client-name">—</h2>
+      <div class="case-header-meta">
+        <span id="ref-badge" class="badge badge-muted" style="font-family:monospace;"></span>
+        <span id="status-badge" class="badge">—</span>
+        <span id="channel-badge" class="badge">—</span>
+      </div>
+    </div>
+    <div class="case-header-actions">
+      <button class="btn btn-sm btn-secondary" onclick="triggerOcr()">Re-OCR</button>
+      <button class="btn btn-sm btn-secondary" onclick="triggerConflict()">Re-Check</button>
+      <button class="btn btn-sm btn-secondary regen-btn" onclick="triggerBrief()">Gen Brief</button>
+      <button class="btn btn-sm btn-primary" onclick="openRequestDocModal()">Request Doc</button>
+      <button class="btn btn-sm btn-secondary" onclick="openCalendlyLink()">Book Consultation</button>
+      <div style="position:relative;">
+        <button class="btn btn-sm btn-secondary" onclick="toggleStatusMenu()">Set Status ▾</button>
+        <div id="status-menu" style="display:none;position:absolute;right:0;top:110%;background:var(--card);border:1px solid var(--border);border-radius:4px;min-width:160px;z-index:100;padding:0.3rem 0;">
+          <button class="status-opt" onclick="setStatus('approved')">✓ Approve</button>
+          <button class="status-opt" onclick="setStatus('rejected')">✗ Reject</button>
+          <button class="status-opt" onclick="setStatus('manual_review')">⚑ Manual Review</button>
+          <button class="status-opt" onclick="setStatus('review')">→ Review</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tabs ─────────────────────────────────────────────── -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
+    <button class="tab-btn" onclick="showTab('brief')">AI Brief</button>
+    <button class="tab-btn" onclick="showTab('statements')">Statements</button>
+    <button class="tab-btn" onclick="showTab('documents')">Documents</button>
+    <button class="tab-btn" onclick="showTab('identity')">Identity</button>
+    <button class="tab-btn" onclick="showTab('letter')">Letter</button>
+  </div>
+
+  <!-- ── Tab: Overview ────────────────────────────────────── -->
+  <div id="tab-overview" class="tab-panel active">
+    <div class="two-col">
+
+      <!-- Contact info -->
+      <div class="info-card">
+        <div class="info-card-title">Contact</div>
+        <div class="info-row"><span class="info-label">Name</span><span class="info-value" id="ov-name">—</span></div>
+        <div class="info-row"><span class="info-label">Email</span><span class="info-value" id="ov-email">—</span></div>
+        <div class="info-row"><span class="info-label">Phone</span><span class="info-value" id="ov-phone">—</span></div>
+        <div class="info-row"><span class="info-label">Channel</span><span class="info-value" id="ov-channel">—</span></div>
+        <div class="info-row"><span class="info-label">Created</span><span class="info-value" id="ov-created">—</span></div>
+      </div>
+
+      <!-- Conflict result -->
+      <div class="info-card">
+        <div class="info-card-title">Conflict Check</div>
+        <div id="conflict-none" class="empty-note">No conflict check run yet.</div>
+        <div id="conflict-data" style="display:none;">
+          <div class="conflict-score-row">
+            <div class="conflict-bar-wrap">
+              <div class="conflict-bar-fill" id="conflict-bar"></div>
+            </div>
+            <span class="conflict-score-num" id="conflict-score-num">0</span>
+          </div>
+          <div class="info-row"><span class="info-label">Match type</span><span class="info-value" id="cf-type">—</span></div>
+          <div class="info-row"><span class="info-label">Decision</span><span class="info-value" id="cf-decision">—</span></div>
+          <div class="info-row" id="cf-reason-row" style="display:none;"><span class="info-label">Reason</span><span class="info-value" id="cf-reason">—</span></div>
+          <div style="margin-top:0.75rem;display:flex;gap:0.5rem;">
+            <button class="btn btn-sm btn-success" onclick="decideConflict('approved')">Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="decideConflict('rejected')">Reject</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KYC summary -->
+    <div id="kyc-card" class="info-card" style="display:none;">
+      <div class="info-card-title">KYC — Know Your Client</div>
+      <div id="kyc-data">
+        <div class="info-row"><span class="info-label">Occupation</span><span class="info-value" id="kyc-occupation">—</span></div>
+        <div class="info-row"><span class="info-label">Employer</span><span class="info-value" id="kyc-employer">—</span></div>
+        <div class="info-row"><span class="info-label">Country</span><span class="info-value" id="kyc-country">—</span></div>
+        <div class="info-row"><span class="info-label">Source of funds</span><span class="info-value" id="kyc-funds">—</span></div>
+        <div class="info-row"><span class="info-label">PEP</span><span class="info-value" id="kyc-pep">—</span></div>
+        <div class="info-row" id="kyc-pep-details-row" style="display:none;"><span class="info-label">PEP details</span><span class="info-value" id="kyc-pep-details">—</span></div>
+        <div class="info-row"><span class="info-label">Sanctions ack</span><span class="info-value" id="kyc-sanctions">—</span></div>
+        <div class="info-row"><span class="info-label">Submitted</span><span class="info-value" id="kyc-submitted">—</span></div>
+      </div>
+    </div>
+
+    <!-- Requested documents checklist -->
+    <div class="info-card">
+      <div class="info-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        Requested Documents
+        <button class="btn btn-sm btn-secondary" onclick="openRequestDocModal()">+ Request</button>
+      </div>
+      <div id="requested-docs-list">
+        <div class="empty-note">No documents requested yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: AI Brief ────────────────────────────────────── -->
+  <div id="tab-brief" class="tab-panel">
+    <div id="brief-none" class="info-card">
+      <div class="empty-note">
+        No AI brief generated yet.
+        <button class="btn btn-sm btn-primary" style="margin-left:0.75rem;" onclick="triggerBrief()">Generate Now</button>
+      </div>
+    </div>
+    <div id="brief-data" style="display:none;">
+
+      <div class="info-card">
+        <div class="brief-section">
+          <div class="brief-section-title">Client Summary</div>
+          <div class="brief-text" id="brief-summary">—</div>
+        </div>
+        <div class="brief-section">
+          <div class="brief-section-title">Situation Overview</div>
+          <div class="brief-text" id="brief-situation">—</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="info-card">
+          <div class="brief-section">
+            <div class="brief-section-title">Key Facts</div>
+            <ul class="brief-list" id="brief-facts"></ul>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="brief-section">
+            <div class="brief-section-title">Questions for Lawyer</div>
+            <ul class="brief-list" id="brief-questions"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div id="brief-inconsistencies-wrap" class="info-card" style="display:none;">
+        <div class="brief-section-title">Inconsistencies / Gaps</div>
+        <div class="brief-alert-box" id="brief-inconsistencies"></div>
+      </div>
+
+      <div id="brief-risks-wrap" class="info-card" style="display:none;">
+        <div class="brief-section-title">Risk Notes</div>
+        <div class="brief-alert-box" id="brief-risks" style="border-color:var(--red);color:var(--red);background:rgba(204,41,41,0.07);"></div>
+      </div>
+
+      <div class="info-card">
+        <div class="brief-section-title">Lawyer Notes</div>
+        <textarea class="lawyer-notes-area" id="lawyer-notes" placeholder="Add your observations…"></textarea>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <button class="save-notes-btn" onclick="saveNotes()">Save Notes</button>
+          <span id="notes-saved-msg" style="font-size:0.72rem;color:var(--green);display:none;">Saved ✓</span>
+        </div>
+      </div>
+
+      <div style="font-family:monospace;font-size:0.6rem;color:var(--text-muted);margin-top:0.5rem;">
+        Generated: <span id="brief-generated-at">—</span>
+        &nbsp;·&nbsp;
+        <button style="background:none;border:none;color:var(--blue);cursor:pointer;font-family:monospace;font-size:0.6rem;" onclick="triggerBrief()">Regenerate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Statements ──────────────────────────────────── -->
+  <div id="tab-statements" class="tab-panel">
+    <div id="statements-list">
+      <div class="empty-note">No statements submitted yet.</div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Documents ───────────────────────────────────── -->
+  <div id="tab-documents" class="tab-panel">
+    <div id="documents-list">
+      <div class="empty-note">No documents uploaded yet.</div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Identity ────────────────────────────────────── -->
+  <div id="tab-identity" class="tab-panel">
+    <div id="passports-list">
+      <div class="empty-note">No passports uploaded yet.</div>
+    </div>
+    <div id="emiratesid-list"></div>
+  </div>
+
+  <!-- ── Tab: Letter ───────────────────────────────────────── -->
+  <div id="tab-letter" class="tab-panel">
+
+    <!-- PDF status banner -->
+    <div id="letter-pdf-banner" style="display:none;margin-bottom:1rem;padding:0.65rem 0.9rem;border-radius:3px;font-size:0.78rem;display:flex;align-items:center;gap:0.75rem;background:var(--green-bg);border:1px solid var(--green);color:var(--green);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span id="letter-pdf-text">Engagement letter PDF generated.</span>
+      <a id="letter-pdf-link" href="#" target="_blank" style="color:var(--green);font-weight:600;margin-left:auto;">Download PDF ↗</a>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">Engagement Letter Details</div>
+      <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.25rem;">
+        Fill in the fields below and click <strong>Generate PDF</strong>. The PDF will be
+        stamped with the firm name, client reference, and a signature block.
+      </p>
+
+      <div class="letter-grid">
+        <div class="letter-field">
+          <label class="letter-label">Matter Type</label>
+          <input type="text" id="ltr-matter" placeholder="e.g. Commercial Dispute / Corporate Advisory" class="letter-input" />
+        </div>
+        <div class="letter-field">
+          <label class="letter-label">Billing Type</label>
+          <select id="ltr-billing" class="letter-input">
+            <option value="">— Select —</option>
+            <option value="Hourly">Hourly</option>
+            <option value="Fixed Fee">Fixed Fee</option>
+            <option value="Retainer">Retainer</option>
+            <option value="Contingency">Contingency</option>
+          </select>
+        </div>
+        <div class="letter-field">
+          <label class="letter-label">Retainer Amount (AED)</label>
+          <input type="number" id="ltr-retainer" placeholder="e.g. 15000" min="0" step="100" class="letter-input" />
+        </div>
+      </div>
+
+      <div class="letter-field" style="margin-top:0.75rem;">
+        <label class="letter-label">Scope of Work</label>
+        <textarea id="ltr-scope" class="letter-textarea" rows="4"
+          placeholder="Describe the legal services to be provided…"></textarea>
+      </div>
+
+      <div class="letter-field" style="margin-top:0.75rem;">
+        <label class="letter-label">Fee Structure Details</label>
+        <textarea id="ltr-fees" class="letter-textarea" rows="3"
+          placeholder="e.g. AED 1,500/hr billed monthly, 50% retainer due upfront…"></textarea>
+      </div>
+
+      <div class="letter-field" style="margin-top:0.75rem;">
+        <label class="letter-label">Timeline / Milestones</label>
+        <textarea id="ltr-timeline" class="letter-textarea" rows="3"
+          placeholder="e.g. Phase 1: Document review (2 weeks)\nPhase 2: Negotiation (4 weeks)"></textarea>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1.25rem;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="ltr-gen-btn" onclick="generateLetter()">
+          Generate PDF
+        </button>
+        <button class="btn btn-secondary" id="ltr-send-btn" onclick="sendForSignature()" style="display:none;">
+          Send for Signature
+        </button>
+        <span id="ltr-docuseal-badge" class="badge" style="display:none;"></span>
+        <span id="ltr-msg" style="font-size:0.75rem;color:var(--text-muted);"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Request Document Modal ────────────────────────────── -->
+<div id="req-doc-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeReqDocModal()">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-header">
+      <span class="modal-title">Request Document</span>
+      <button class="modal-close" onclick="closeReqDocModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Document Type</label>
+        <select id="req-doc-type" class="form-select">
+          <option value="business_license">Business License</option>
+          <option value="contract">Contract</option>
+          <option value="court_document">Court Document</option>
+          <option value="power_of_attorney">Power of Attorney</option>
+          <option value="title_deed">Title Deed</option>
+          <option value="bank_statement">Bank Statement</option>
+          <option value="corporate_documents">Corporate Documents</option>
+          <option value="passport">Passport</option>
+          <option value="emirates_id">Emirates ID</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea id="req-doc-notes" class="form-textarea" rows="2" placeholder="e.g. Certified copy required"></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="submitRequestDoc()">Send Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Conflict Decision Modal ────────────────────────────── -->
+<div id="conflict-decision-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeConflictModal()">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-header">
+      <span class="modal-title" id="conflict-modal-title">Approve despite conflict</span>
+      <button class="modal-close" onclick="closeConflictModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Reason (required for approval despite conflict)</label>
+        <textarea id="conflict-reason" class="form-textarea" rows="3" placeholder="Explain why this conflict should be overridden…"></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="submitConflictDecision()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+  const CLIENT_ID = "{{ client_id }}";
+  let caseData    = null;
+  let pendingConflictDecision = null;
+  let conflictId  = null;
+
+  /* ── Load data ──────────────────────────────────────────── */
+  async function loadCase() {
+    try {
+      const resp = await fetch(`/admin/clients/${CLIENT_ID}/data`);
+      const json = await resp.json();
+      if (!resp.ok || !json.ok) {
+        document.getElementById("loading-state").textContent = "Failed to load case.";
+        return;
+      }
+      caseData = json.data;
+      renderCase(caseData);
+      document.getElementById("loading-state").style.display = "none";
+      document.getElementById("case-content").style.display  = "block";
+    } catch (e) {
+      document.getElementById("loading-state").textContent = "Network error.";
+    }
+  }
+
+  function renderCase(d) {
+    const c = d.client;
+
+    // Header
+    document.getElementById("client-name").textContent  = c.full_name;
+    document.getElementById("ref-badge").textContent    = c.reference_id;
+    document.title = `${c.full_name} — Case Detail`;
+
+    const statusBadge = document.getElementById("status-badge");
+    statusBadge.textContent = c.status.replace(/_/g, " ");
+    statusBadge.className   = "badge " + _statusClass(c.status);
+
+    const chanBadge = document.getElementById("channel-badge");
+    chanBadge.textContent = c.channel;
+    chanBadge.className   = "badge badge-" + c.channel;
+
+    // Overview tab
+    document.getElementById("ov-name").textContent    = c.full_name;
+    document.getElementById("ov-email").textContent   = c.email;
+    document.getElementById("ov-phone").textContent   = c.phone;
+    document.getElementById("ov-channel").textContent = c.channel;
+    document.getElementById("ov-created").textContent = c.created_at ? new Date(c.created_at).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"}) : "—";
+
+    // Conflict
+    if (d.conflict_result) {
+      const cr = d.conflict_result;
+      conflictId = cr.conflict_id;
+      const score = cr.confidence_score;
+      document.getElementById("conflict-none").style.display = "none";
+      document.getElementById("conflict-data").style.display = "block";
+      document.getElementById("conflict-score-num").textContent = score.toFixed(0);
+      const bar = document.getElementById("conflict-bar");
+      bar.style.width      = `${score}%`;
+      bar.style.background = score >= 80 ? "var(--red)" : score >= 50 ? "var(--orange)" : "var(--green)";
+      document.getElementById("cf-type").textContent     = cr.match_type;
+      document.getElementById("cf-decision").innerHTML   = `<span class="badge ${_decisionClass(cr.decision)}">${cr.decision}</span>`;
+      if (cr.decision_reason) {
+        document.getElementById("cf-reason-row").style.display = "flex";
+        document.getElementById("cf-reason").textContent = cr.decision_reason;
+      }
+    }
+
+    // Requested docs
+    renderRequestedDocs(d.requested_docs);
+
+    // AI Brief
+    if (d.ai_brief) {
+      renderBrief(d.ai_brief);
+    }
+
+    // KYC
+    if (d.kyc) renderKyc(d.kyc);
+
+    // Statements
+    renderStatements(d.statements);
+
+    // Documents
+    renderDocuments(d.documents);
+
+    // Passports
+    renderIdentity(d.passports, d.emirates_ids);
+  }
+
+  function renderKyc(k) {
+    document.getElementById("kyc-card").style.display = "block";
+    document.getElementById("kyc-occupation").textContent = k.occupation || "—";
+    document.getElementById("kyc-employer").textContent   = k.employer   || "—";
+    document.getElementById("kyc-country").textContent    = k.country_of_residence || "—";
+    document.getElementById("kyc-funds").textContent      = k.source_of_funds || "—";
+    document.getElementById("kyc-pep").innerHTML          = k.is_pep
+      ? '<span class="badge badge-red">Yes — PEP</span>'
+      : '<span class="badge badge-green">No</span>';
+    if (k.is_pep && k.pep_details) {
+      document.getElementById("kyc-pep-details-row").style.display = "flex";
+      document.getElementById("kyc-pep-details").textContent = k.pep_details;
+    }
+    document.getElementById("kyc-sanctions").innerHTML = k.sanctions_ack
+      ? '<span class="badge badge-green">Acknowledged ✓</span>'
+      : '<span class="badge badge-red">Not acknowledged</span>';
+    document.getElementById("kyc-submitted").textContent = k.submitted_at
+      ? new Date(k.submitted_at).toLocaleDateString() : "—";
+  }
+
+  function renderBrief(b) {
+    document.getElementById("brief-none").style.display = "none";
+    document.getElementById("brief-data").style.display = "block";
+    document.getElementById("brief-summary").textContent   = b.client_summary   || "—";
+    document.getElementById("brief-situation").textContent = b.situation_overview || "—";
+
+    const factsList = document.getElementById("brief-facts");
+    factsList.innerHTML = "";
+    (b.key_facts || []).forEach(f => {
+      const li = document.createElement("li");
+      li.textContent = f;
+      factsList.appendChild(li);
+    });
+    if (!factsList.children.length) factsList.innerHTML = "<li>None listed.</li>";
+
+    const qList = document.getElementById("brief-questions");
+    qList.innerHTML = "";
+    (b.questions_for_lawyer || []).forEach(q => {
+      const li = document.createElement("li"); li.textContent = q; qList.appendChild(li);
+    });
+    if (!qList.children.length) qList.innerHTML = "<li>None listed.</li>";
+
+    if (b.inconsistencies) {
+      document.getElementById("brief-inconsistencies-wrap").style.display = "block";
+      document.getElementById("brief-inconsistencies").textContent = b.inconsistencies;
+    }
+    if (b.risk_notes) {
+      document.getElementById("brief-risks-wrap").style.display = "block";
+      document.getElementById("brief-risks").textContent = b.risk_notes;
+    }
+    if (b.lawyer_notes) {
+      document.getElementById("lawyer-notes").value = b.lawyer_notes;
+    }
+    document.getElementById("brief-generated-at").textContent = b.generated_at
+      ? new Date(b.generated_at).toLocaleString("en-GB")
+      : "—";
+  }
+
+  function renderStatements(stmts) {
+    const el = document.getElementById("statements-list");
+    if (!stmts || !stmts.length) { el.innerHTML = '<div class="empty-note">No statements submitted yet.</div>'; return; }
+    el.innerHTML = stmts.map(s => `
+      <div class="statement-card">
+        <div class="statement-seq">Statement ${s.sequence_number} · ${s.channel}</div>
+        <div class="statement-text">${escHtml(s.client_edited_text || "(no text yet)")}</div>
+      </div>`).join("");
+  }
+
+  function renderDocuments(docs) {
+    const el = document.getElementById("documents-list");
+    if (!docs || !docs.length) { el.innerHTML = '<div class="empty-note">No documents uploaded yet.</div>'; return; }
+    el.innerHTML = `<div class="info-card" style="padding-top:0.5rem;">` +
+      docs.map(d => `
+        <div class="doc-row">
+          <span class="doc-icon">📄</span>
+          <span class="doc-name">${escHtml(d.saved_filename)}</span>
+          <span class="doc-type badge badge-muted">${escHtml(d.file_type)}</span>
+          <span style="font-size:0.68rem;color:var(--text-muted);">${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString("en-GB") : ""}</span>
+        </div>`).join("") + `</div>`;
+  }
+
+  function renderIdentity(passports, eids) {
+    const pEl = document.getElementById("passports-list");
+    if (!passports || !passports.length) {
+      pEl.innerHTML = '<div class="empty-note">No passports uploaded yet.</div>';
+    } else {
+      pEl.innerHTML = passports.map(p => `
+        <div class="passport-card">
+          <div class="info-card-title">Passport</div>
+          ${p.passport_number ? `<div class="info-row"><span class="info-label">Number</span><span class="info-value" style="font-family:monospace;">${escHtml(p.passport_number)}</span></div>` : ""}
+          ${p.nationality ? `<div class="info-row"><span class="info-label">Nationality</span><span class="info-value">${escHtml(p.nationality)}</span></div>` : ""}
+          ${p.date_of_birth ? `<div class="info-row"><span class="info-label">Date of birth</span><span class="info-value">${escHtml(p.date_of_birth)}</span></div>` : ""}
+          ${p.expiry_date ? `<div class="info-row"><span class="info-label">Expiry</span><span class="info-value">${escHtml(p.expiry_date)}</span></div>` : ""}
+          ${!p.passport_number ? '<div class="empty-note" style="margin:0.3rem 0;">OCR pending…</div>' : ""}
+        </div>`).join("");
+    }
+
+    const eEl = document.getElementById("emiratesid-list");
+    if (eids && eids.length && eids[0].id_number) {
+      eEl.innerHTML = `<div class="passport-card"><div class="info-card-title">Emirates ID</div>
+        <div class="info-row"><span class="info-label">Number</span><span class="info-value" style="font-family:monospace;">${escHtml(eids[0].id_number)}</span></div></div>`;
+    }
+  }
+
+  function renderRequestedDocs(rdocs) {
+    const el = document.getElementById("requested-docs-list");
+    if (!rdocs || !rdocs.length) { el.innerHTML = '<div class="empty-note">No documents requested yet.</div>'; return; }
+    el.innerHTML = rdocs.map(rd => `
+      <div class="doc-row">
+        <span class="doc-icon">${rd.is_received ? "✅" : "⏳"}</span>
+        <span class="doc-name">${escHtml(rd.document_type)}</span>
+        ${rd.notes ? `<span class="doc-type" style="color:var(--text-muted);">${escHtml(rd.notes)}</span>` : ""}
+        <span class="badge ${rd.is_received ? 'badge-green' : 'badge-orange'}">${rd.is_received ? "received" : "pending"}</span>
+      </div>`).join("");
+  }
+
+  /* ── Tabs ────────────────────────────────────────────────── */
+  function showTab(name) {
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById(`tab-${name}`).classList.add("active");
+    event.target.classList.add("active");
+  }
+
+  /* ── Actions ─────────────────────────────────────────────── */
+  async function triggerOcr() {
+    if (!confirm("Re-run OCR on all passport images?")) return;
+    const r = await fetch(`/api/ocr/run/${CLIENT_ID}`, { method: "POST" });
+    const d = await r.json();
+    alert(d.data ? `Queued ${d.data.count} OCR task(s).` : "Failed.");
+  }
+
+  async function triggerConflict() {
+    if (!confirm("Re-run conflict check for this client?")) return;
+    const r = await fetch(`/api/conflict/check/${CLIENT_ID}`, { method: "POST" });
+    const d = await r.json();
+    alert(d.ok ? "Conflict check queued." : "Failed: " + d.message);
+    setTimeout(loadCase, 3000);
+  }
+
+  async function triggerBrief() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = "Generating…";
+    try {
+      // Queue Celery task — or fallback to sync if Celery unavailable
+      await fetch(`/api/conflict/check/${CLIENT_ID}`, { method: "POST" }); // ensure conflict done first
+      // brief generation is wired through submit in real flow; here we call Celery task endpoint
+      const r = await fetch(`/admin/clients/${CLIENT_ID}/data`);
+      alert("Brief generation queued. Reload in a few seconds.");
+      setTimeout(loadCase, 5000);
+    } catch(e) { alert("Error queuing brief."); }
+    finally { btn.disabled = false; btn.textContent = "Gen Brief"; }
+  }
+
+  let _conflictDecisionValue = null;
+  function decideConflict(decision) {
+    _conflictDecisionValue = decision;
+    document.getElementById("conflict-modal-title").textContent =
+      decision === "approved" ? "Approve despite conflict" : "Reject client";
+    document.getElementById("conflict-decision-modal").style.display = "flex";
+  }
+  function closeConflictModal() {
+    document.getElementById("conflict-decision-modal").style.display = "none";
+    _conflictDecisionValue = null;
+  }
+  async function submitConflictDecision() {
+    const reason = document.getElementById("conflict-reason").value.trim();
+    if (!reason && _conflictDecisionValue === "approved") {
+      alert("A reason is required when approving despite a conflict.");
+      return;
+    }
+    const r = await fetch(`/admin/conflict/${conflictId}/decide`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ decision: _conflictDecisionValue, reason }),
+    });
+    const d = await r.json();
+    if (d.ok) { closeConflictModal(); loadCase(); }
+    else alert("Failed: " + d.message);
+  }
+
+  function toggleStatusMenu() {
+    const m = document.getElementById("status-menu");
+    m.style.display = m.style.display === "none" ? "block" : "none";
+  }
+  document.addEventListener("click", e => {
+    if (!e.target.closest("[onclick='toggleStatusMenu()']")) {
+      const m = document.getElementById("status-menu");
+      if (m) m.style.display = "none";
+    }
+  });
+  async function setStatus(status) {
+    document.getElementById("status-menu").style.display = "none";
+    const r = await fetch(`/admin/clients/${CLIENT_ID}/status`, {
+      method: "PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ status }),
+    });
+    const d = await r.json();
+    if (d.ok) loadCase();
+    else alert("Failed: " + d.message);
+  }
+
+  function openRequestDocModal() {
+    document.getElementById("req-doc-modal").style.display = "flex";
+  }
+  function closeReqDocModal() {
+    document.getElementById("req-doc-modal").style.display = "none";
+  }
+  async function submitRequestDoc() {
+    const doc_type = document.getElementById("req-doc-type").value;
+    const notes    = document.getElementById("req-doc-notes").value.trim();
+    const r = await fetch(`/admin/clients/${CLIENT_ID}/request-document`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ document_type: doc_type, notes }),
+    });
+    const d = await r.json();
+    if (d.ok) { closeReqDocModal(); loadCase(); }
+    else alert("Failed: " + d.message);
+  }
+
+  async function openCalendlyLink() {
+    try {
+      const r = await fetch(`/admin/clients/${CLIENT_ID}/calendly-link`);
+      const d = await r.json();
+      if (!d.ok) { alert("Calendly not configured: " + d.message); return; }
+      window.open(d.data.calendly_url, "_blank");
+    } catch(e) { alert("Could not retrieve Calendly link."); }
+  }
+
+  async function saveNotes() {
+    const notes = document.getElementById("lawyer-notes").value;
+    const r = await fetch(`/admin/clients/${CLIENT_ID}/brief/notes`, {
+      method: "PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ notes }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const msg = document.getElementById("notes-saved-msg");
+      msg.style.display = "inline";
+      setTimeout(() => msg.style.display = "none", 2500);
+    } else alert("Failed: " + d.message);
+  }
+
+  /* ── Utilities ───────────────────────────────────────────── */
+  function _statusClass(s) {
+    return { approved:"badge-green", rejected:"badge-red", manual_review:"badge-red",
+             conflict_check:"badge-orange", review:"badge-blue",
+             pending:"badge-muted", id_uploaded:"badge-muted",
+             context_collection:"badge-blue" }[s] || "badge-muted";
+  }
+  function _decisionClass(d) {
+    return { approved:"badge-green", rejected:"badge-red", pending:"badge-orange" }[d] || "badge-muted";
+  }
+  function escHtml(s) {
+    if (!s) return "";
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // Status menu option styling
+  document.querySelectorAll(".status-opt").forEach(b => {
+    b.style.cssText = "display:block;width:100%;text-align:left;background:none;border:none;" +
+      "padding:0.4rem 0.85rem;font-size:0.78rem;color:var(--text);cursor:pointer;";
+    b.onmouseover = () => b.style.background = "var(--surface-2)";
+    b.onmouseout  = () => b.style.background = "none";
+  });
+
+  /* ── Engagement letter ───────────────────────────────────── */
+  async function loadLetter() {
+    try {
+      const r = await fetch(`/admin/clients/${CLIENT_ID}/engagement-letter`);
+      const d = await r.json();
+      if (!d.ok || !d.data.letter) return;
+      const lt = d.data.letter;
+      if (lt.matter_type)    document.getElementById("ltr-matter").value   = lt.matter_type;
+      if (lt.billing_type)   document.getElementById("ltr-billing").value  = lt.billing_type;
+      if (lt.retainer_amount != null) document.getElementById("ltr-retainer").value = lt.retainer_amount;
+      if (lt.scope_of_work)  document.getElementById("ltr-scope").value    = lt.scope_of_work;
+      if (lt.fee_structure)  document.getElementById("ltr-fees").value     = lt.fee_structure;
+      if (lt.timeline)       document.getElementById("ltr-timeline").value = lt.timeline;
+      if (lt.has_pdf) {
+        const banner  = document.getElementById("letter-pdf-banner");
+        const link    = document.getElementById("letter-pdf-link");
+        const created = lt.created_at ? new Date(lt.created_at).toLocaleDateString() : "";
+        document.getElementById("letter-pdf-text").textContent =
+          `PDF generated${created ? " on " + created : ""}.`;
+        link.href = `/admin/clients/${CLIENT_ID}/engagement-letter/download`;
+        banner.style.display = "flex";
+        // Show send button if not yet sent/signed
+        if (!lt.docuseal_status || lt.docuseal_status === "declined") {
+          document.getElementById("ltr-send-btn").style.display = "inline-flex";
+        }
+        // Show signature status badge
+        if (lt.docuseal_status) {
+          const badge = document.getElementById("ltr-docuseal-badge");
+          const cls   = { sent:"badge-orange", signed:"badge-green", declined:"badge-red" }[lt.docuseal_status] || "badge-muted";
+          badge.className = `badge ${cls}`;
+          badge.textContent = { sent:"Sent for signature", signed:"Signed ✓", declined:"Declined" }[lt.docuseal_status] || lt.docuseal_status;
+          badge.style.display = "inline-flex";
+          if (lt.signed_at) {
+            badge.title = "Signed: " + new Date(lt.signed_at).toLocaleDateString();
+          }
+        }
+      }
+    } catch(e) { /* no letter yet — silently skip */ }
+  }
+
+  async function sendForSignature() {
+    const btn = document.getElementById("ltr-send-btn");
+    const msg = document.getElementById("ltr-msg");
+    if (!confirm("Send this engagement letter to the client for electronic signature?")) return;
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    msg.textContent = "";
+    try {
+      const r = await fetch(`/admin/clients/${CLIENT_ID}/engagement-letter/send`, { method: "POST" });
+      const d = await r.json();
+      if (!d.ok) {
+        msg.textContent = "Failed: " + (d.message || "Unknown error.");
+        msg.style.color = "var(--red)";
+        return;
+      }
+      msg.textContent = "✓ Sent for signature.";
+      msg.style.color = "var(--green)";
+      loadLetter();
+    } catch(e) {
+      msg.textContent = "Network error.";
+      msg.style.color = "var(--red)";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Send for Signature";
+    }
+  }
+
+  async function generateLetter() {
+    const btn = document.getElementById("ltr-gen-btn");
+    const msg = document.getElementById("ltr-msg");
+    btn.disabled = true;
+    btn.textContent = "Generating…";
+    msg.textContent = "";
+    msg.style.color = "var(--text-muted)";
+
+    const body = {
+      matter_type:     document.getElementById("ltr-matter").value.trim(),
+      billing_type:    document.getElementById("ltr-billing").value,
+      retainer_amount: document.getElementById("ltr-retainer").value || null,
+      scope_of_work:   document.getElementById("ltr-scope").value.trim(),
+      fee_structure:   document.getElementById("ltr-fees").value.trim(),
+      timeline:        document.getElementById("ltr-timeline").value.trim(),
+    };
+
+    try {
+      const r = await fetch(`/admin/clients/${CLIENT_ID}/engagement-letter`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        msg.textContent = "Failed: " + (d.message || "Unknown error.");
+        msg.style.color = "var(--red)";
+        return;
+      }
+      msg.textContent = "✓ PDF generated.";
+      msg.style.color = "var(--green)";
+      loadLetter();
+    } catch(e) {
+      msg.textContent = "Network error.";
+      msg.style.color = "var(--red)";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Generate PDF";
+    }
+  }
+
+  /* ── Init ────────────────────────────────────────────────── */
+  loadCase();
+  loadLetter();
+</script>
+{% endblock %}

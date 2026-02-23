@@ -1,0 +1,164 @@
+{% extends "client/_base.html" %}
+{# No step indicator for the edit page #}
+
+{% block title %}Edit Your Information{% endblock %}
+
+{% block extra_css %}
+<style>
+  .portal-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .portal-card .subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.75rem; line-height: 1.5; }
+  .form-field { margin-bottom: 1.1rem; }
+  .form-field label {
+    display: block;
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+  }
+  .form-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+    transition: border-color 0.15s;
+  }
+  .form-field input:focus { outline: none; border-color: var(--blue); }
+  .save-btn {
+    width: 100%;
+    padding: 0.7rem;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: opacity 0.15s;
+  }
+  .save-btn:hover { opacity: 0.88; }
+  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .back-link {
+    display: block;
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .back-link a { color: var(--blue); }
+  .info-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.7rem 0.9rem;
+    background: rgba(41,98,204,0.07);
+    border: 1px solid var(--blue);
+    border-radius: 3px;
+    font-size: 0.78rem;
+    color: var(--blue);
+    line-height: 1.4;
+    margin-bottom: 1.25rem;
+  }
+  .info-banner svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+  .result-banner { display: none; padding: 0.7rem 0.9rem; border-radius: 3px; font-size: 0.78rem; margin-top: 0.75rem; }
+  .result-banner.success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
+  .result-banner.error   { background: rgba(204,41,41,0.07); border: 1px solid var(--red); color: var(--red); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="portal-card">
+  <h2>Edit Your Information</h2>
+  <p class="subtitle">
+    Update your contact details below. Changes are logged and may trigger a re-verification
+    if your name or passport information has changed.
+  </p>
+
+  <div class="info-banner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span>Your reference number is <strong>{{ client.reference_id }}</strong>. Contact your lawyer to update passport or ID documents.</span>
+  </div>
+
+  <div class="form-field">
+    <label for="full-name">Full Name</label>
+    <input type="text" id="full-name" value="{{ client.full_name }}" autocomplete="name" />
+  </div>
+  <div class="form-field">
+    <label for="email">Email Address</label>
+    <input type="email" id="email" value="{{ client.email }}" autocomplete="email" />
+  </div>
+  <div class="form-field">
+    <label for="phone">Phone Number</label>
+    <input type="tel" id="phone" value="{{ client.phone }}" autocomplete="tel" />
+  </div>
+
+  <button class="save-btn" id="save-btn" onclick="saveProfile()">Save Changes</button>
+  <div id="result-banner" class="result-banner"></div>
+  <a class="back-link" href="/client/{{ client.reference_id }}?token={{ token }}">← Back to your portal</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const TOKEN  = "{{ token }}";
+const REF_ID = "{{ client.reference_id }}";
+
+async function saveProfile() {
+  const full_name = document.getElementById("full-name").value.trim();
+  const email     = document.getElementById("email").value.trim().toLowerCase();
+  const phone     = document.getElementById("phone").value.trim();
+  const btn       = document.getElementById("save-btn");
+  const banner    = document.getElementById("result-banner");
+
+  if (!full_name || !email || !phone) {
+    showBanner("error", "All fields are required.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+  banner.style.display = "none";
+
+  try {
+    const resp = await fetch(`/client/edit/profile?token=${TOKEN}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ full_name, email, phone }),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok || !data.ok) {
+      showBanner("error", data.message || "Failed to save. Please try again.");
+      return;
+    }
+
+    showBanner("success", "✓ Your information has been updated.");
+    if (data.data && data.data.recheck_triggered) {
+      showBanner("success", "✓ Saved. A re-verification has been triggered since your name changed.");
+    }
+  } catch (e) {
+    showBanner("error", "Network error. Please try again.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save Changes";
+  }
+}
+
+function showBanner(type, msg) {
+  const b = document.getElementById("result-banner");
+  b.className = `result-banner ${type}`;
+  b.textContent = msg;
+  b.style.display = "block";
+}
+</script>
+{% endblock %}

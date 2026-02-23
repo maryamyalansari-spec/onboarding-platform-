@@ -1,0 +1,240 @@
+{% extends "client/_base.html" %}
+{# No step indicator for this page #}
+
+{% block title %}Access Your Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+  .login-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+  }
+  .login-card h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .login-card .subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1.75rem;
+    line-height: 1.5;
+  }
+  .form-field { margin-bottom: 1rem; }
+  .form-field label {
+    display: block;
+    font-family: monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+  }
+  .form-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+    transition: border-color 0.15s;
+  }
+  .form-field input:focus {
+    outline: none;
+    border-color: var(--blue);
+  }
+  #submit-btn {
+    width: 100%;
+    padding: 0.7rem;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: opacity 0.15s;
+  }
+  #submit-btn:hover { opacity: 0.88; }
+  #submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .result-box {
+    display: none;
+    margin-top: 1.25rem;
+    padding: 0.85rem 1rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .result-box.success {
+    background: var(--green-bg);
+    border: 1px solid var(--green);
+    color: var(--green);
+  }
+  .result-box.error {
+    background: rgba(204,41,41,0.07);
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+  .portal-link-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  .portal-link-row a {
+    flex: 1;
+    font-family: monospace;
+    font-size: 0.65rem;
+    color: var(--blue);
+    word-break: break-all;
+    text-decoration: none;
+  }
+  .portal-link-row a:hover { text-decoration: underline; }
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 3px 8px;
+    font-family: monospace;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .copy-btn:hover { color: var(--text); }
+  .copy-btn.copied { color: var(--green); border-color: var(--green); }
+  .divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+  .new-intake-link {
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .new-intake-link a { color: var(--blue); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-card">
+  <h2>Access Your Portal</h2>
+  <p class="subtitle">
+    Enter your reference number and email to retrieve your secure portal link.
+    Your reference number looks like <strong>ITF-2026-00001</strong>.
+  </p>
+
+  <div class="form-field">
+    <label for="ref-input">Reference Number</label>
+    <input type="text" id="ref-input" placeholder="ITF-2026-00001" autocomplete="off"
+           oninput="this.value = this.value.toUpperCase()" />
+  </div>
+
+  <div class="form-field">
+    <label for="email-input">Email Address</label>
+    <input type="email" id="email-input" placeholder="you@example.com" />
+  </div>
+
+  <button id="submit-btn" onclick="requestLink()">Retrieve My Link</button>
+
+  <div id="result-box" class="result-box"></div>
+
+  <div class="divider"></div>
+
+  <p class="new-intake-link">
+    New client? <a href="/client/start">Start a new intake →</a>
+  </p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function requestLink() {
+  const ref   = document.getElementById("ref-input").value.trim().toUpperCase();
+  const email = document.getElementById("email-input").value.trim().toLowerCase();
+  const btn   = document.getElementById("submit-btn");
+  const box   = document.getElementById("result-box");
+
+  if (!ref || !email) {
+    showResult("error", "Please enter both your reference number and email.");
+    return;
+  }
+  if (!ref.startsWith("ITF-")) {
+    showResult("error", "Reference number should start with ITF- (e.g. ITF-2026-00001).");
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = "Looking up…";
+  box.style.display = "none";
+
+  try {
+    const resp = await fetch("/client/request-link", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ reference_id: ref, email }),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok || !data.ok) {
+      showResult("error", data.message || "We couldn't find a matching record. Please check your details.");
+      return;
+    }
+
+    const link = data.data.portal_link;
+    showResult("success",
+      `✓ Portal link found for <strong>${ref}</strong>.` +
+      (data.data.email_sent
+        ? ` A link has been sent to your email address.`
+        : ` Copy the link below to access your portal.`)
+    );
+
+    if (link) {
+      const linkRow = document.createElement("div");
+      linkRow.className = "portal-link-row";
+      linkRow.innerHTML = `
+        <a href="${link}" target="_blank">${window.location.origin}${link}</a>
+        <button class="copy-btn" onclick="copyLink(this, '${window.location.origin}${link}')">Copy</button>
+      `;
+      document.getElementById("result-box").appendChild(linkRow);
+    }
+  } catch (e) {
+    showResult("error", "Network error. Please try again.");
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = "Retrieve My Link";
+  }
+}
+
+function showResult(type, html) {
+  const box = document.getElementById("result-box");
+  box.className     = `result-box ${type}`;
+  box.style.display = "block";
+  box.innerHTML     = html;
+}
+
+function copyLink(btn, url) {
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = "Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2500);
+  });
+}
+
+// Allow Enter key
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter") requestLink();
+});
+</script>
+{% endblock %}
