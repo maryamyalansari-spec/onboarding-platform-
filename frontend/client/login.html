@@ -146,7 +146,7 @@
     <input type="email" id="email-input" placeholder="you@example.com" />
   </div>
 
-  <button id="submit-btn" onclick="requestLink()">Retrieve My Link</button>
+  <button id="submit-btn" onclick="requestLink()">Sign In</button>
 
   <div id="result-box" class="result-box"></div>
 
@@ -176,7 +176,7 @@ async function requestLink() {
   }
 
   btn.disabled    = true;
-  btn.textContent = "Looking up…";
+  btn.textContent = "Signing in…";
   box.style.display = "none";
 
   try {
@@ -187,33 +187,19 @@ async function requestLink() {
     });
     const data = await resp.json();
 
-    if (!resp.ok || !data.ok) {
-      showResult("error", data.message || "We couldn't find a matching record. Please check your details.");
+    if (!resp.ok || !data.success) {
+      showResult("error", data.error || "We couldn't find a matching record. Please check your details.");
       return;
     }
 
-    const link = data.data.portal_link;
-    showResult("success",
-      `✓ Portal link found for <strong>${ref}</strong>.` +
-      (data.data.email_sent
-        ? ` A link has been sent to your email address.`
-        : ` Copy the link below to access your portal.`)
-    );
-
-    if (link) {
-      const linkRow = document.createElement("div");
-      linkRow.className = "portal-link-row";
-      linkRow.innerHTML = `
-        <a href="${link}" target="_blank">${window.location.origin}${link}</a>
-        <button class="copy-btn" onclick="copyLink(this, '${window.location.origin}${link}')">Copy</button>
-      `;
-      document.getElementById("result-box").appendChild(linkRow);
+    if (data.data.portal_link) {
+      window.location.href = data.data.portal_link;
     }
   } catch (e) {
     showResult("error", "Network error. Please try again.");
   } finally {
     btn.disabled    = false;
-    btn.textContent = "Retrieve My Link";
+    btn.textContent = "Sign In";
   }
 }
 

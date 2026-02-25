@@ -1,0 +1,235 @@
+{% extends "client/_base.html" %}
+{% set current_step = 3 %}
+{% set waiting_mode = true %}
+
+{% block title %}Under Review{% endblock %}
+
+{% block extra_css %}
+<style>
+  .waiting-card {
+    width: 100%;
+    max-width: 540px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2.5rem 2rem;
+    text-align: center;
+  }
+
+  .waiting-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1.25rem;
+    opacity: 0.85;
+  }
+
+  .waiting-card h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+  }
+
+  .waiting-card .subtitle {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin-bottom: 1.75rem;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .ref-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--blue-bg);
+    border: 1px solid var(--blue);
+    border-radius: 3px;
+    padding: 0.4rem 0.9rem;
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: var(--blue);
+    letter-spacing: 0.08em;
+    margin-bottom: 1.75rem;
+  }
+  .ref-copy-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--blue);
+    font-size: 0.7rem;
+    padding: 0;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+  }
+  .ref-copy-btn:hover { opacity: 1; }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.75rem 0;
+  }
+
+  .next-steps {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .next-step-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+  }
+
+  .step-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: monospace;
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-dot.active {
+    border-color: var(--blue);
+    background: var(--blue-bg);
+    color: var(--blue);
+  }
+
+  .next-step-text strong {
+    display: block;
+    font-size: 0.8rem;
+    margin-bottom: 0.15rem;
+  }
+  .next-step-text span {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .pulse-ring {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 1.5rem;
+    font-family: monospace;
+  }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--blue);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.75); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="waiting-card">
+
+  <div class="waiting-icon">⏳</div>
+  <h2>Your documents are being reviewed</h2>
+  <p class="subtitle">
+    Our team is running a conflict-of-interest check on your file.
+    This usually takes less than one business day. You will receive
+    an email once your file is cleared and you can continue.
+  </p>
+
+  <div class="ref-display">
+    <span id="ref-text">{{ client.reference_id }}</span>
+    <button class="ref-copy-btn" onclick="copyRef()" title="Copy reference number">⧉</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="next-steps">
+    <div class="next-step-row">
+      <div class="step-dot active">1</div>
+      <div class="next-step-text">
+        <strong>Conflict check in progress</strong>
+        <span>We are verifying there are no conflicts of interest with your matter.</span>
+      </div>
+    </div>
+    <div class="next-step-row">
+      <div class="step-dot">2</div>
+      <div class="next-step-text">
+        <strong>Admin approval</strong>
+        <span>A team member will review the result and approve your intake to continue.</span>
+      </div>
+    </div>
+    <div class="next-step-row">
+      <div class="step-dot">3</div>
+      <div class="next-step-text">
+        <strong>Email notification</strong>
+        <span>You will receive an email at <strong>{{ client.email }}</strong> with a link to continue.</span>
+      </div>
+    </div>
+    <div class="next-step-row">
+      <div class="step-dot">4</div>
+      <div class="next-step-text">
+        <strong>Complete your intake</strong>
+        <span>Log back in to provide your statement and upload any supporting documents.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pulse-ring">
+    <div class="pulse-dot"></div>
+    <span id="status-msg">Checking for updates…</span>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const REFERENCE_ID = "{{ client.reference_id }}";
+  const TOKEN        = "{{ token }}";
+
+  function copyRef() {
+    navigator.clipboard.writeText(REFERENCE_ID).then(() => {
+      const btn = document.querySelector(".ref-copy-btn");
+      btn.textContent = "✓";
+      setTimeout(() => btn.textContent = "⧉", 2000);
+    });
+  }
+
+  async function pollStatus() {
+    try {
+      const resp = await fetch(
+        `/client/${REFERENCE_ID}/status-check?token=${encodeURIComponent(TOKEN)}`
+      );
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const status = data?.data?.status;
+
+      if (status && status !== "conflict_check" && status !== "manual_review") {
+        document.getElementById("status-msg").textContent = "Approved — redirecting…";
+        window.location.href = `/client/${REFERENCE_ID}?token=${encodeURIComponent(TOKEN)}`;
+      } else {
+        document.getElementById("status-msg").textContent =
+          "Still under review — last checked " + new Date().toLocaleTimeString("en-GB");
+      }
+    } catch (e) {
+      // Network hiccup — silently retry on next tick
+    }
+  }
+
+  // Poll immediately on load, then every 30 seconds
+  pollStatus();
+  setInterval(pollStatus, 30000);
+</script>
+{% endblock %}

@@ -103,8 +103,8 @@ def portal_entry(reference_id):
     step_map = {
         ClientStatus.pending:            "upload",
         ClientStatus.id_uploaded:        "upload",
-        ClientStatus.conflict_check:     "statement",
-        ClientStatus.manual_review:      "statement",
+        ClientStatus.conflict_check:     "waiting",
+        ClientStatus.manual_review:      "waiting",
         ClientStatus.context_collection: "statement",
         ClientStatus.review:             "documents",
         ClientStatus.approved:           "confirmation",
@@ -138,6 +138,32 @@ def upload_page(reference_id):
         client=client,
         token=request.args.get("token", ""),
     )
+
+
+@client_bp.route("/<reference_id>/waiting", methods=["GET"])
+@client_token_auth
+def waiting_page(reference_id):
+    """Waiting for admin approval after ID upload / conflict check."""
+    client = g.client
+    # If admin already approved (status advanced past waiting states), redirect forward
+    if client.status not in (ClientStatus.conflict_check, ClientStatus.manual_review):
+        token = request.args.get("token", "")
+        return redirect(url_for("client.portal_entry", reference_id=reference_id, token=token))
+    return render_template(
+        "client/waiting.html",
+        client=client,
+        token=request.args.get("token", ""),
+        current_step=3,
+        waiting_mode=True,
+    )
+
+
+@client_bp.route("/<reference_id>/status-check", methods=["GET"])
+@client_token_auth
+def status_check(reference_id):
+    """Lightweight status poll for the waiting page auto-refresh."""
+    client = g.client
+    return success(data={"status": client.status.value})
 
 
 @client_bp.route("/<reference_id>/statement", methods=["GET"])
@@ -733,7 +759,7 @@ def upload_complete():
         except Exception:
             current_app.logger.warning("Celery not available — OCR/conflict check will not run automatically.")
 
-    next_url = f"/client/{client.reference_id}/statement?token={token}"
+    next_url = f"/client/{client.reference_id}/waiting?token={token}"
     return success(data={"next_url": next_url})
 
 

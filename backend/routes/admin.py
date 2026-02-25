@@ -490,8 +490,8 @@ def update_status(client_id):
                  "client", client_id)
     db.session.commit()
 
-    # Fire notification email for terminal statuses
-    if new_status_str in ("approved", "rejected") and client.email:
+    # Fire notification email for key status transitions
+    if new_status_str in ("approved", "rejected", "context_collection") and client.email:
         try:
             from tasks.notifications import send_status_email
             send_status_email.delay(client_id, new_status_str)
@@ -1022,6 +1022,78 @@ def docuseal_webhook():
     db.session.commit()
     current_app.logger.info(f"DocuSeal: letter {letter.letter_id} marked signed.")
     return success(message="Signed.")
+
+
+# ── Generate AI analysis (synchronous, no Celery required) ───────────────────
+@admin_bp.route("/clients/<client_id>/analysis/generate", methods=["POST"])
+@login_required
+def generate_analysis(client_id):
+    """
+    POST /admin/clients/<client_id>/analysis/generate
+    Runs Claude analysis synchronously and saves result to ai_briefs table.
+    """
+    import uuid as _uuid
+    from flask import current_app
+    from models import ConflictResult
+
+    firm_id = get_current_firm_id()
+    client  = Client.query.filter_by(client_id=client_id, firm_id=firm_id).first()
+    if not client:
+        return not_found("Client")
+
+    if not client.statements:
+        return error("Client has no statements yet. Analysis requires at least one statement.")
+
+    latest_conflict = (
+        ConflictResult.query
+        .filter_by(client_id=client_id)
+        .order_by(ConflictResult.created_at.desc())
+        .first()
+    )
+
+    client_data = {
+        "full_name": client.full_name,
+        "conflict_score": float(latest_conflict.confidence_score) if latest_conflict else 0.0,
+        "statements": [
+            {
+                "sequence_number":    s.sequence_number,
+                "client_edited_text": s.client_edited_text or "",
+            }
+            for s in sorted(client.statements, key=lambda x: x.sequence_number)
+            if s.client_edited_text
+        ],
+        "documents": [
+            {"file_type": d.file_type.value, "saved_filename": d.saved_filename}
+            for d in client.documents
+        ],
+        "passports": [
+            {"nationality": p.nationality}
+            for p in client.passports if p.nationality
+        ],
+    }
+
+    try:
+        from routes.ai import generate_brief
+        result = generate_brief(client_data)
+    except RuntimeError as exc:
+        return error(str(exc), 500)
+
+    brief = AIBrief(
+        brief_id              = str(_uuid.uuid4()),
+        client_id             = client_id,
+        client_summary        = result.get("client_summary"),
+        situation_overview    = result.get("situation_overview"),
+        key_facts             = result.get("key_facts"),
+        documents_provided    = result.get("documents_provided"),
+        inconsistencies       = result.get("inconsistencies"),
+        questions_for_lawyer  = result.get("questions_for_lawyer"),
+        risk_notes            = result.get("risk_notes"),
+        raw_gpt_response      = result.get("raw_gpt_response"),
+    )
+    db.session.add(brief)
+    db.session.commit()
+
+    return success(data={"brief_id": brief.brief_id}, message="Analysis generated.")
 
 
 # ── AI brief notes ────────────────────────────────────────

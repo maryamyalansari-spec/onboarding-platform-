@@ -25,8 +25,11 @@ class Config:
     CELERY_BROKER_URL = REDIS_URL
     CELERY_RESULT_BACKEND = REDIS_URL
 
-    # OpenAI
+    # OpenAI (Whisper transcription)
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+    # Anthropic (AI analysis)
+    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
     # Twilio
     TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")

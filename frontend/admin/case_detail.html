@@ -348,9 +348,12 @@
       </div>
     </div>
     <div class="case-header-actions">
+      <button class="btn btn-sm btn-primary" id="proceed-btn" onclick="proceedToPortal()" style="display:none;">
+        Approve to Continue →
+      </button>
       <button class="btn btn-sm btn-secondary" onclick="triggerOcr()">Re-OCR</button>
       <button class="btn btn-sm btn-secondary" onclick="triggerConflict()">Re-Check</button>
-      <button class="btn btn-sm btn-secondary regen-btn" onclick="triggerBrief()">Gen Brief</button>
+      <button class="btn btn-sm btn-secondary regen-btn" onclick="runAnalysis()">AI Analysis</button>
       <button class="btn btn-sm btn-primary" onclick="openRequestDocModal()">Request Doc</button>
       <button class="btn btn-sm btn-secondary" onclick="openCalendlyLink()">Book Consultation</button>
       <div style="position:relative;">
@@ -368,7 +371,7 @@
   <!-- ── Tabs ─────────────────────────────────────────────── -->
   <div class="tab-bar">
     <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
-    <button class="tab-btn" onclick="showTab('brief')">AI Brief</button>
+    <button class="tab-btn" onclick="showTab('brief')" id="tab-btn-brief">AI Analysis</button>
     <button class="tab-btn" onclick="showTab('statements')">Statements</button>
     <button class="tab-btn" onclick="showTab('documents')">Documents</button>
     <button class="tab-btn" onclick="showTab('identity')">Identity</button>
@@ -389,24 +392,14 @@
         <div class="info-row"><span class="info-label">Created</span><span class="info-value" id="ov-created">—</span></div>
       </div>
 
-      <!-- Conflict result -->
+      <!-- Conflict result (compact) -->
       <div class="info-card">
         <div class="info-card-title">Conflict Check</div>
         <div id="conflict-none" class="empty-note">No conflict check run yet.</div>
         <div id="conflict-data" style="display:none;">
-          <div class="conflict-score-row">
-            <div class="conflict-bar-wrap">
-              <div class="conflict-bar-fill" id="conflict-bar"></div>
-            </div>
-            <span class="conflict-score-num" id="conflict-score-num">0</span>
-          </div>
-          <div class="info-row"><span class="info-label">Match type</span><span class="info-value" id="cf-type">—</span></div>
+          <div class="info-row"><span class="info-label">Result</span><span class="info-value" id="cf-type">—</span></div>
           <div class="info-row"><span class="info-label">Decision</span><span class="info-value" id="cf-decision">—</span></div>
           <div class="info-row" id="cf-reason-row" style="display:none;"><span class="info-label">Reason</span><span class="info-value" id="cf-reason">—</span></div>
-          <div style="margin-top:0.75rem;display:flex;gap:0.5rem;">
-            <button class="btn btn-sm btn-success" onclick="decideConflict('approved')">Approve</button>
-            <button class="btn btn-sm btn-danger" onclick="decideConflict('rejected')">Reject</button>
-          </div>
         </div>
       </div>
     </div>
@@ -438,66 +431,88 @@
     </div>
   </div>
 
-  <!-- ── Tab: AI Brief ────────────────────────────────────── -->
+  <!-- ── Tab: AI Analysis ──────────────────────────────────── -->
   <div id="tab-brief" class="tab-panel">
+
+    <!-- Empty / generate state -->
     <div id="brief-none" class="info-card">
-      <div class="empty-note">
-        No AI brief generated yet.
-        <button class="btn btn-sm btn-primary" style="margin-left:0.75rem;" onclick="triggerBrief()">Generate Now</button>
+      <div style="padding:0.5rem 0;">
+        <div style="font-size:0.88rem;font-weight:600;margin-bottom:0.4rem;">AI Analysis</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.6;">
+          Run Claude AI to analyse this client's statements and documents. Available once the client
+          has submitted their statement.
+        </div>
+        <button class="btn btn-primary" id="run-analysis-btn" onclick="runAnalysis()">
+          Run AI Analysis
+        </button>
+        <span id="analysis-running-msg" style="display:none;margin-left:0.75rem;font-size:0.78rem;color:var(--text-muted);">
+          Analysing… this takes a few seconds
+        </span>
+        <div id="analysis-error" style="display:none;margin-top:0.75rem;font-size:0.78rem;color:var(--red);"></div>
       </div>
     </div>
+
+    <!-- Results -->
     <div id="brief-data" style="display:none;">
 
+      <!-- Header bar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div>
+          <span style="font-size:0.88rem;font-weight:700;">AI Analysis</span>
+          <span style="font-family:monospace;font-size:0.6rem;color:var(--text-muted);margin-left:0.75rem;">
+            Generated: <span id="brief-generated-at">—</span>
+          </span>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="runAnalysis()">Re-run Analysis</button>
+      </div>
+
+      <!-- Summary + situation -->
       <div class="info-card">
         <div class="brief-section">
           <div class="brief-section-title">Client Summary</div>
           <div class="brief-text" id="brief-summary">—</div>
         </div>
-        <div class="brief-section">
+        <div class="brief-section" style="margin-top:1rem;">
           <div class="brief-section-title">Situation Overview</div>
           <div class="brief-text" id="brief-situation">—</div>
         </div>
       </div>
 
+      <!-- Key facts + questions -->
       <div class="two-col">
         <div class="info-card">
-          <div class="brief-section">
-            <div class="brief-section-title">Key Facts</div>
-            <ul class="brief-list" id="brief-facts"></ul>
-          </div>
+          <div class="brief-section-title">Key Facts</div>
+          <ul class="brief-list" id="brief-facts"></ul>
         </div>
         <div class="info-card">
-          <div class="brief-section">
-            <div class="brief-section-title">Questions for Lawyer</div>
-            <ul class="brief-list" id="brief-questions"></ul>
-          </div>
+          <div class="brief-section-title">Questions for the Lawyer</div>
+          <ul class="brief-list" id="brief-questions"></ul>
         </div>
       </div>
 
+      <!-- Inconsistencies -->
       <div id="brief-inconsistencies-wrap" class="info-card" style="display:none;">
         <div class="brief-section-title">Inconsistencies / Gaps</div>
         <div class="brief-alert-box" id="brief-inconsistencies"></div>
       </div>
 
+      <!-- Risk notes -->
       <div id="brief-risks-wrap" class="info-card" style="display:none;">
         <div class="brief-section-title">Risk Notes</div>
-        <div class="brief-alert-box" id="brief-risks" style="border-color:var(--red);color:var(--red);background:rgba(204,41,41,0.07);"></div>
+        <div class="brief-alert-box" id="brief-risks"
+             style="border-color:var(--red);color:var(--red);background:rgba(204,41,41,0.07);"></div>
       </div>
 
+      <!-- Lawyer notes -->
       <div class="info-card">
         <div class="brief-section-title">Lawyer Notes</div>
         <textarea class="lawyer-notes-area" id="lawyer-notes" placeholder="Add your observations…"></textarea>
-        <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.5rem;">
           <button class="save-notes-btn" onclick="saveNotes()">Save Notes</button>
           <span id="notes-saved-msg" style="font-size:0.72rem;color:var(--green);display:none;">Saved ✓</span>
         </div>
       </div>
 
-      <div style="font-family:monospace;font-size:0.6rem;color:var(--text-muted);margin-top:0.5rem;">
-        Generated: <span id="brief-generated-at">—</span>
-        &nbsp;·&nbsp;
-        <button style="background:none;border:none;color:var(--blue);cursor:pointer;font-family:monospace;font-size:0.6rem;" onclick="triggerBrief()">Regenerate</button>
-      </div>
     </div>
   </div>
 
@@ -695,23 +710,28 @@
     document.getElementById("ov-channel").textContent = c.channel;
     document.getElementById("ov-created").textContent = c.created_at ? new Date(c.created_at).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"}) : "—";
 
-    // Conflict
+    // Conflict (compact — no score bar)
     if (d.conflict_result) {
       const cr = d.conflict_result;
       conflictId = cr.conflict_id;
       const score = cr.confidence_score;
       document.getElementById("conflict-none").style.display = "none";
       document.getElementById("conflict-data").style.display = "block";
-      document.getElementById("conflict-score-num").textContent = score.toFixed(0);
-      const bar = document.getElementById("conflict-bar");
-      bar.style.width      = `${score}%`;
-      bar.style.background = score >= 80 ? "var(--red)" : score >= 50 ? "var(--orange)" : "var(--green)";
-      document.getElementById("cf-type").textContent     = cr.match_type;
-      document.getElementById("cf-decision").innerHTML   = `<span class="badge ${_decisionClass(cr.decision)}">${cr.decision}</span>`;
+      const resultLabel = score >= 50 ? `Flagged (${score.toFixed(0)})` : `Clear (${score.toFixed(0)})`;
+      const resultColor = score >= 50 ? "badge-red" : "badge-green";
+      document.getElementById("cf-type").innerHTML     = `<span class="badge ${resultColor}">${resultLabel}</span>`;
+      document.getElementById("cf-decision").innerHTML = `<span class="badge ${_decisionClass(cr.decision)}">${cr.decision}</span>`;
       if (cr.decision_reason) {
         document.getElementById("cf-reason-row").style.display = "flex";
         document.getElementById("cf-reason").textContent = cr.decision_reason;
       }
+    }
+
+    // Show "Approve to Continue" button when status is conflict_check or manual_review
+    const proceedBtn = document.getElementById("proceed-btn");
+    if (proceedBtn) {
+      proceedBtn.style.display =
+        (c.status === "conflict_check" || c.status === "manual_review") ? "inline-flex" : "none";
     }
 
     // Requested docs
@@ -875,19 +895,32 @@
     setTimeout(loadCase, 3000);
   }
 
-  async function triggerBrief() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = "Generating…";
+  async function runAnalysis() {
+    const btn     = document.getElementById("run-analysis-btn");
+    const runMsg  = document.getElementById("analysis-running-msg");
+    const errDiv  = document.getElementById("analysis-error");
+    if (btn) btn.disabled = true;
+    if (runMsg) runMsg.style.display = "inline";
+    if (errDiv) errDiv.style.display = "none";
     try {
-      // Queue Celery task — or fallback to sync if Celery unavailable
-      await fetch(`/api/conflict/check/${CLIENT_ID}`, { method: "POST" }); // ensure conflict done first
-      // brief generation is wired through submit in real flow; here we call Celery task endpoint
-      const r = await fetch(`/admin/clients/${CLIENT_ID}/data`);
-      alert("Brief generation queued. Reload in a few seconds.");
-      setTimeout(loadCase, 5000);
-    } catch(e) { alert("Error queuing brief."); }
-    finally { btn.disabled = false; btn.textContent = "Gen Brief"; }
+      const r = await fetch(`/admin/clients/${CLIENT_ID}/analysis/generate`, { method: "POST" });
+      const d = await r.json();
+      if (!d.ok) {
+        if (errDiv) { errDiv.textContent = d.message || "Analysis failed."; errDiv.style.display = "block"; }
+        return;
+      }
+      await loadCase();
+      // Switch to analysis tab automatically
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById("tab-brief").classList.add("active");
+      document.getElementById("tab-btn-brief").classList.add("active");
+    } catch(e) {
+      if (errDiv) { errDiv.textContent = "Network error. Please try again."; errDiv.style.display = "block"; }
+    } finally {
+      if (btn) btn.disabled = false;
+      if (runMsg) runMsg.style.display = "none";
+    }
   }
 
   let _conflictDecisionValue = null;
@@ -915,6 +948,11 @@
     const d = await r.json();
     if (d.ok) { closeConflictModal(); loadCase(); }
     else alert("Failed: " + d.message);
+  }
+
+  async function proceedToPortal() {
+    if (!confirm("Approve this client to continue their intake? They will be notified by email.")) return;
+    await setStatus("context_collection");
   }
 
   function toggleStatusMenu() {

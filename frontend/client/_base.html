@@ -6,7 +6,7 @@
   <title>{% block title %}ITIFAQ{% endblock %} — Client Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/main.css" />
   <link rel="stylesheet" href="/static/css/components.css" />
 
@@ -33,7 +33,7 @@
     .portal-logo {
       font-family: 'Syne', sans-serif;
       font-size: 1rem;
-      font-weight: 800;
+      font-weight: 400;
       letter-spacing: 0.16em;
       text-transform: uppercase;
       color: var(--text);
@@ -152,13 +152,14 @@
 
   <!-- Step progress indicator -->
   {% if current_step is defined %}
+  {% set step3_label = "Pending Review" if (waiting_mode is defined and waiting_mode) else "Statement" %}
   <div class="portal-body" style="padding-bottom:0;padding-top:2rem">
     <div class="step-progress-wrap">
       <div class="step-progress">
         {% for step_num, step_label in [
             (1, 'Contact'),
             (2, 'Documents'),
-            (3, 'Statement'),
+            (3, step3_label),
             (4, 'Upload'),
           ] %}
         <div class="step-item {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
@@ -183,10 +184,11 @@
     // Clock
     function updateClock() {
       const now = new Date();
-      const d = now.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
-      const t = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      const opts = { timeZone: 'Asia/Dubai' };
+      const d = now.toLocaleDateString('en-GB', { ...opts, day:'2-digit', month:'short', year:'numeric' });
+      const t = now.toLocaleTimeString('en-GB', { ...opts, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
       const el = document.getElementById('clock');
-      if (el) el.textContent = `${d}  ${t}`;
+      if (el) el.textContent = `${d}  ${t} GST`;
     }
     updateClock();
     setInterval(updateClock, 1000);

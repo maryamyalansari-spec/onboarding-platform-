@@ -114,10 +114,8 @@ def run_conflict_check(client_id: str) -> dict:
         client.status = ClientStatus.manual_review
         logger.info(f"[Conflict] Client {client_id} flagged for manual review (score={score}).")
     else:
-        # Clean — advance to context collection (statement step)
-        if client.status in (ClientStatus.conflict_check, ClientStatus.id_uploaded):
-            client.status = ClientStatus.context_collection
-            logger.info(f"[Conflict] Client {client_id} cleared, status → context_collection.")
+        # Clean — leave status as conflict_check; admin must approve to continue
+        logger.info(f"[Conflict] Client {client_id} cleared (score={score}). Awaiting admin approval.")
 
     db.session.commit()
 

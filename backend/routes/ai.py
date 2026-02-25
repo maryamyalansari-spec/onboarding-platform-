@@ -1,23 +1,10 @@
 """
-ai.py — ALL AI/OpenAI calls are isolated here.
-
-This is the ONLY file that imports or calls OpenAI (Whisper + GPT-4).
-To swap to local Ollama models, change only this file. Nothing else changes.
+ai.py — ALL AI calls are isolated here.
 
 Current providers:
   - Speech-to-text:  OpenAI Whisper API
-  - Brief generation: OpenAI GPT-4
+  - Analysis:        Anthropic Claude (claude-sonnet-4-6)
   - Embeddings:      OpenAI text-embedding-3-small (for conflict soft-match)
-
-Future swap targets:
-  - Speech-to-text:  faster-whisper (self-hosted)
-  - Brief generation: Ollama (local LLM via HTTP)
-  - Embeddings:      sentence-transformers (local)
-
-Full implementation:
-  - Whisper:    Step 14
-  - GPT-4 brief: Step 16
-  - Embeddings: Step 12
 """
 
 import os
@@ -65,95 +52,86 @@ def transcribe_audio(audio_file_path: str) -> str:
         raise RuntimeError(f"Whisper transcription failed: {exc}") from exc
 
 
-# ─── Brief generation ─────────────────────────────────────────────────────────
+# ─── AI Analysis (Anthropic Claude) ───────────────────────────────────────────
 
 def generate_brief(client_data: dict) -> dict:
     """
-    Generate a structured AI brief for a client using GPT-4.
-
-    Current provider: OpenAI GPT-4o
-    Swap target:      Ollama local LLM
+    Generate a structured AI analysis for a client using Anthropic Claude.
 
     Args:
         client_data: Dict containing:
-            - full_name:       str
-            - statements:      list of { sequence_number, client_edited_text }
-            - documents:       list of { file_type, saved_filename }
-            - passports:       list of { nationality }
-            - conflict_score:  float (0–100)
+            - full_name:   str
+            - statements:  list of { sequence_number, client_edited_text }
+            - documents:   list of { file_type, saved_filename }
+            - passports:   list of { nationality }
 
     Returns:
         Dict with keys matching AIBrief model fields.
-
-    Raises:
-        RuntimeError if generation fails
     """
     import json as _json
     try:
-        import openai
+        import anthropic
         from flask import current_app
-        api_key = current_app.config.get("OPENAI_API_KEY")
+        api_key = current_app.config.get("ANTHROPIC_API_KEY")
         if not api_key:
-            raise RuntimeError("OPENAI_API_KEY not configured.")
+            raise RuntimeError("ANTHROPIC_API_KEY not configured. Add it to your .env file.")
 
         client_name = client_data.get("full_name", "Unknown")
         statements  = client_data.get("statements", [])
         documents   = client_data.get("documents", [])
         passports   = client_data.get("passports", [])
-        conflict_score = client_data.get("conflict_score", 0)
 
-        # Build the prompt
         stmt_text = "\n".join(
             f"Statement {s['sequence_number']}: {s['client_edited_text']}"
             for s in statements if s.get("client_edited_text")
         ) or "No statements provided."
 
-        doc_text = ", ".join(d.get("file_type", "unknown") for d in documents) or "None"
-        nat_text = ", ".join(p.get("nationality", "") for p in passports if p.get("nationality")) or "Unknown"
+        doc_text = "\n".join(
+            f"- {d.get('file_type', 'Unknown type')}: {d.get('saved_filename', '')}"
+            for d in documents
+        ) or "No documents uploaded."
 
-        system_prompt = (
-            "You are a legal intake assistant at a UAE law firm. "
-            "Your task is to read a client's self-reported information and produce a structured "
-            "brief for the reviewing lawyer. Be concise, professional, and objective. "
-            "Output ONLY valid JSON — no markdown, no preamble."
-        )
+        nat_text = ", ".join(
+            p.get("nationality", "") for p in passports if p.get("nationality")
+        ) or "Unknown"
 
-        user_prompt = f"""
-Client: {client_name}
-Nationality: {nat_text}
-Conflict check score: {conflict_score}/100
+        prompt = f"""You are a legal intake assistant at a UAE law firm. Analyse the following client intake and produce a structured assessment for the reviewing lawyer. Be concise, professional, and objective. Output ONLY valid JSON — no markdown, no preamble.
 
-Client statements:
+CLIENT: {client_name}
+NATIONALITY: {nat_text}
+
+CLIENT STATEMENTS:
 {stmt_text}
 
-Documents uploaded: {doc_text}
+DOCUMENTS UPLOADED:
+{doc_text}
 
 Produce a JSON object with exactly these fields:
 {{
   "client_summary": "2-3 sentence overview of who the client is and their matter",
-  "situation_overview": "Paragraph explaining the legal situation as described",
-  "key_facts": ["fact 1", "fact 2", ...],
-  "documents_provided": ["doc type 1", ...],
-  "inconsistencies": "Any inconsistencies or gaps in the client's account, or null",
-  "questions_for_lawyer": ["question 1", ...],
-  "risk_notes": "Risk or complexity notes for the lawyer, or null"
-}}
-""".strip()
+  "situation_overview": "A clear paragraph explaining the legal situation as described by the client",
+  "key_facts": ["fact 1", "fact 2", "fact 3"],
+  "documents_provided": ["list of document types uploaded"],
+  "inconsistencies": "Any inconsistencies or notable gaps in the client's account, or null if none",
+  "questions_for_lawyer": ["question 1", "question 2"],
+  "risk_notes": "Any risk or complexity notes the lawyer should be aware of, or null if none"
+}}"""
 
-        oai = openai.OpenAI(api_key=api_key)
-        response = oai.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt},
-            ],
-            temperature=0.3,
-            max_tokens=1200,
-            response_format={"type": "json_object"},
+        claude = anthropic.Anthropic(api_key=api_key)
+        message = claude.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}],
         )
 
-        raw = response.choices[0].message.content
-        parsed = _json.loads(raw)
+        raw = message.content[0].text
+        # Strip any accidental markdown fences
+        clean = raw.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        parsed = _json.loads(clean.strip())
 
         return {
             "client_summary":       parsed.get("client_summary"),
@@ -166,7 +144,7 @@ Produce a JSON object with exactly these fields:
             "raw_gpt_response":     raw,
         }
     except Exception as exc:
-        raise RuntimeError(f"GPT-4 brief generation failed: {exc}") from exc
+        raise RuntimeError(f"Claude analysis failed: {exc}") from exc
 
 
 # ─── Embeddings ───────────────────────────────────────────────────────────────

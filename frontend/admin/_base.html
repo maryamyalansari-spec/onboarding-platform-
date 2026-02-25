@@ -6,7 +6,7 @@
   <title>{% block title %}ITIFAQ{% endblock %} — Onboarding</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/main.css" />
   <link rel="stylesheet" href="/static/css/sidebar.css" />
   <link rel="stylesheet" href="/static/css/components.css" />
@@ -24,7 +24,7 @@
 
     <!-- Logo -->
     <div class="sidebar-header">
-      <span class="sidebar-logo">ITIFAQ</span>
+      <span class="sidebar-logo" style="font-weight:400;">ITIFAQ</span>
     </div>
 
     <!-- Navigation -->
@@ -264,6 +264,19 @@
 <!-- ═══════════════════════════ SCRIPTS ═══════════════════════════ -->
 <script src="/static/js/theme.js"></script>
 <script src="/static/js/sidebar.js"></script>
+<script>
+  // Dubai clock (GST = UTC+4)
+  function updateClock() {
+    const now = new Date();
+    const opts = { timeZone: 'Asia/Dubai' };
+    const d = now.toLocaleDateString('en-GB', { ...opts, day:'2-digit', month:'short', year:'numeric' });
+    const t = now.toLocaleTimeString('en-GB', { ...opts, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
+    const el = document.getElementById('clock');
+    if (el) el.textContent = `${d}  ${t} GST`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+</script>
 <script>
   // ── New Intake Modal ─────────────────────────────────────────
   let selectedChannel = null;

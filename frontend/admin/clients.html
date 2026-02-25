@@ -1,0 +1,284 @@
+{% extends "admin/_base.html" %}
+{% block title %}Clients{% endblock %}
+{% block page_title %}Clients{% endblock %}
+
+{% block extra_css %}
+<style>
+  .status-pending        { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange); }
+  .status-id_uploaded    { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue);   }
+  .status-conflict_check { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue);   }
+  .status-manual_review  { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red);    }
+  .status-context_collection { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue); }
+  .status-review         { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange); }
+  .status-approved       { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green);  }
+  .status-rejected       { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red);    }
+
+  .type-badge-pending {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-family: monospace; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 0.22rem 0.55rem; border-radius: 3px;
+    background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange);
+  }
+  .type-badge-existing {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-family: monospace; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 0.22rem 0.55rem; border-radius: 3px;
+    background: var(--green-bg); color: var(--green); border: 1px solid var(--green);
+  }
+
+  .date-label {
+    font-family: monospace; font-size: 0.58rem; text-transform: uppercase;
+    letter-spacing: 0.09em; color: var(--text-muted); display: block; margin-bottom: 0.1rem;
+  }
+  .date-value {
+    font-family: monospace; font-size: 0.75rem; color: var(--text);
+  }
+
+  .filter-bar { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:center; }
+  .filter-btn { font-family:monospace; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em;
+    padding:0.3rem 0.7rem; border-radius:3px; border:1px solid var(--border); background:transparent;
+    color:var(--text-muted); cursor:pointer; transition:all 0.15s; }
+  .filter-btn.active, .filter-btn:hover { border-color:var(--text-muted); color:var(--text); }
+  .filter-btn.active { background:var(--card); }
+
+  /* section divider rows */
+  .section-divider td {
+    padding: 0.5rem 0.75rem 0.25rem;
+    font-family: monospace; font-size: 0.58rem; text-transform: uppercase;
+    letter-spacing: 0.13em; color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">All Clients</span>
+  </div>
+  <div style="display:flex;gap:0.6rem">
+    <button class="btn btn-secondary btn-sm" onclick="loadClients()">Refresh</button>
+    <button class="btn btn-primary btn-sm" onclick="openNewIntakeModal()">+ New Intake</button>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+    <input class="form-input" id="clientSearch" type="text" placeholder="Search by name or reference…"
+      oninput="renderTable()" style="max-width:280px" />
+    <div class="filter-bar" style="margin-bottom:0">
+      <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" onclick="setFilter('pending_clients', this)">Pending Clients</button>
+      <button class="filter-btn" onclick="setFilter('existing_clients', this)">Existing Clients</button>
+      <button class="filter-btn" onclick="setFilter('manual_review', this)">Manual Review</button>
+      <button class="filter-btn" onclick="setFilter('rejected', this)">Rejected</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table id="clientsTable">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Type</th>
+          <th>Channel</th>
+          <th>Intake Stage</th>
+          <th>Conflict</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="clientsTableBody">
+        <tr><td colspan="7">
+          <div class="empty-state" style="padding:2rem 0">
+            <div class="spinner" style="margin:0 auto 0.75rem"></div>
+            <div class="empty-state-text">Loading clients…</div>
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allClients = [];
+let currentFilter = 'all';
+
+async function loadClients() {
+  try {
+    const res  = await fetch('/admin/clients-data?limit=200');
+    const data = await res.json();
+    if (!data.success) throw new Error();
+    allClients = data.data.clients;
+    renderTable();
+  } catch {
+    document.getElementById('clientsTableBody').innerHTML =
+      `<tr><td colspan="7"><div class="empty-state" style="padding:2rem 0">
+        <div class="empty-state-text">Could not load clients.</div></div></td></tr>`;
+  }
+}
+
+function isExisting(c) { return c.status === 'approved'; }
+function isPending(c)  { return c.status !== 'approved' && c.status !== 'rejected'; }
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function renderTable() {
+  const q = (document.getElementById('clientSearch').value || '').toLowerCase();
+  let list = allClients;
+
+  if (currentFilter === 'pending_clients')  list = list.filter(isPending);
+  else if (currentFilter === 'existing_clients') list = list.filter(isExisting);
+  else if (currentFilter === 'manual_review') list = list.filter(c => c.status === 'manual_review');
+  else if (currentFilter === 'rejected')    list = list.filter(c => c.status === 'rejected');
+
+  if (q) list = list.filter(c =>
+    c.full_name.toLowerCase().includes(q) || c.reference_id.toLowerCase().includes(q)
+  );
+
+  const tbody = document.getElementById('clientsTableBody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding:2rem 0">
+      <div class="empty-state-title">No clients found</div></div></td></tr>`;
+    return;
+  }
+
+  // Split into groups when showing All
+  let rows = '';
+  if (currentFilter === 'all' && !q) {
+    const existing = list.filter(isExisting);
+    const pending  = list.filter(c => isPending(c));
+    const rejected = list.filter(c => c.status === 'rejected');
+
+    if (pending.length) {
+      rows += `<tr class="section-divider"><td colspan="7">Pending Clients — ${pending.length}</td></tr>`;
+      rows += pending.map(clientRow).join('');
+    }
+    if (existing.length) {
+      rows += `<tr class="section-divider"><td colspan="7">Existing Clients — ${existing.length}</td></tr>`;
+      rows += existing.map(clientRow).join('');
+    }
+    if (rejected.length) {
+      rows += `<tr class="section-divider"><td colspan="7">Rejected — ${rejected.length}</td></tr>`;
+      rows += rejected.map(clientRow).join('');
+    }
+  } else {
+    rows = list.map(clientRow).join('');
+  }
+
+  tbody.innerHTML = rows;
+}
+
+function clientRow(c) {
+  const existing  = isExisting(c);
+  const typeBadge = existing
+    ? `<span class="type-badge-existing">Existing Client</span>`
+    : `<span class="type-badge-pending">Pending Client</span>`;
+
+  const dateLabel = existing ? 'Onboarded' : 'Request sent';
+  const dateBlock = `<span class="date-label">${dateLabel}</span>
+                     <span class="date-value">${fmtDate(c.created_at)}</span>`;
+
+  return `
+    <tr onclick="window.location='/admin/clients/${c.client_id}'" style="cursor:pointer">
+      <td>
+        <div class="td-name">${esc(c.full_name)}</div>
+        <div class="td-ref">${esc(c.reference_id)}</div>
+      </td>
+      <td>${typeBadge}</td>
+      <td>${c.channel === 'whatsapp'
+        ? '<span class="badge badge-whatsapp">WhatsApp</span>'
+        : '<span class="badge badge-web">Web</span>'}</td>
+      <td><span class="badge status-${c.status}">${statusLabel(c.status)}</span></td>
+      <td onclick="event.stopPropagation()">${conflictCell(c)}</td>
+      <td>${dateBlock}</td>
+      <td class="td-actions">
+        <a href="/admin/clients/${c.client_id}" class="btn btn-secondary btn-sm"
+           onclick="event.stopPropagation()">View</a>
+      </td>
+    </tr>`;
+}
+
+function statusLabel(s) {
+  return {
+    pending:            'Awaiting Upload',
+    id_uploaded:        'ID Uploaded',
+    conflict_check:     'Conflict Check',
+    manual_review:      'Manual Review',
+    context_collection: 'Statement',
+    review:             'In Review',
+    approved:           'Approved',
+    rejected:           'Rejected',
+  }[s] || s;
+}
+
+function conflictCell(c) {
+  const needsAction = c.status === 'conflict_check' || c.status === 'manual_review';
+  const score = c.conflict_score;
+
+  // Conflict badge
+  let badge = '';
+  if (score == null) {
+    badge = `<span class="badge badge-muted">Pending</span>`;
+  } else if (score >= 50) {
+    badge = `<span class="badge badge-red">Flagged · ${Math.round(score)}</span>`;
+  } else {
+    badge = `<span class="badge badge-green">Clear · ${Math.round(score)}</span>`;
+  }
+
+  // Inline approve / reject only when awaiting decision
+  const actions = needsAction ? `
+    <div style="display:flex;gap:0.3rem;margin-top:0.35rem;">
+      <button class="btn btn-sm btn-success" style="padding:0.2rem 0.55rem;font-size:0.68rem;"
+        onclick="approveClient('${c.client_id}')">Approve →</button>
+      <button class="btn btn-sm btn-danger" style="padding:0.2rem 0.55rem;font-size:0.68rem;"
+        onclick="rejectClient('${c.client_id}')">Reject</button>
+    </div>` : '';
+
+  return badge + actions;
+}
+
+async function approveClient(clientId) {
+  if (!confirm('Approve this client to continue their intake?')) return;
+  const r = await fetch(`/admin/clients/${clientId}/status`, {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ status: 'context_collection' }),
+  });
+  const d = await r.json();
+  if (d.ok) loadClients();
+  else alert('Failed: ' + d.message);
+}
+
+async function rejectClient(clientId) {
+  if (!confirm('Reject this client?')) return;
+  const r = await fetch(`/admin/clients/${clientId}/status`, {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ status: 'rejected' }),
+  });
+  const d = await r.json();
+  if (d.ok) loadClients();
+  else alert('Failed: ' + d.message);
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.addEventListener('DOMContentLoaded', loadClients);
+</script>
+{% endblock %}
