@@ -955,8 +955,8 @@
     try {
       const r = await fetch(`/admin/clients/${CLIENT_ID}/analysis/generate`, { method: "POST" });
       const d = await r.json();
-      if (!d.ok) {
-        if (errDiv) { errDiv.textContent = d.message || "Analysis failed."; errDiv.style.display = "block"; }
+      if (!d.success) {
+        if (errDiv) { errDiv.textContent = d.error || d.message || "Analysis failed."; errDiv.style.display = "block"; }
         return;
       }
       await loadCase();
@@ -1096,9 +1096,11 @@
   /* ── Engagement letter ───────────────────────────────────── */
   async function loadLetter() {
     try {
-      const r = await fetch(`/admin/clients/${CLIENT_ID}/engagement-letter`);
+      const r = await fetch(`/admin/clients/${CLIENT_ID}/engagement-letter`, {
+        headers: { 'Accept': 'application/json' }
+      });
       const d = await r.json();
-      if (!d.ok || !d.data.letter) return;
+      if (!d.success || !d.data.letter) return;
       const lt = d.data.letter;
       if (lt.matter_type)    document.getElementById("ltr-matter").value   = lt.matter_type;
       if (lt.billing_type)   document.getElementById("ltr-billing").value  = lt.billing_type;
@@ -1143,8 +1145,8 @@
     try {
       const r = await fetch(`/admin/clients/${CLIENT_ID}/engagement-letter/send`, { method: "POST" });
       const d = await r.json();
-      if (!d.ok) {
-        msg.textContent = "Failed: " + (d.message || "Unknown error.");
+      if (!d.success) {
+        msg.textContent = "Failed: " + (d.error || d.message || "Unknown error.");
         msg.style.color = "var(--red)";
         return;
       }
@@ -1184,8 +1186,8 @@
         body: JSON.stringify(body),
       });
       const d = await r.json();
-      if (!d.ok) {
-        msg.textContent = "Failed: " + (d.message || "Unknown error.");
+      if (!d.success) {
+        msg.textContent = "Failed: " + (d.error || d.message || "Unknown error.");
         msg.style.color = "var(--red)";
         return;
       }
