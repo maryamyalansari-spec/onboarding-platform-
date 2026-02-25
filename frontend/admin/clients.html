@@ -109,12 +109,18 @@ let currentFilter = 'all';
 
 async function loadClients() {
   try {
-    const res  = await fetch('/admin/clients-data?limit=200');
+    const res = await fetch('/admin/clients-data?limit=200', {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (res.status === 401 || res.redirected) {
+      window.location.href = '/auth/login';
+      return;
+    }
     const data = await res.json();
-    if (!data.success) throw new Error();
+    if (!data.success) throw new Error(data.message || 'Server error');
     allClients = data.data.clients;
     renderTable();
-  } catch {
+  } catch (err) {
     document.getElementById('clientsTableBody').innerHTML =
       `<tr><td colspan="7"><div class="empty-state" style="padding:2rem 0">
         <div class="empty-state-text">Could not load clients.</div></div></td></tr>`;
