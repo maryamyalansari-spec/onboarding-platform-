@@ -883,7 +883,7 @@ def download_engagement_letter(client_id):
         return not_found("Engagement letter PDF")
 
     upload_folder = current_app.config["UPLOAD_FOLDER"]
-    abs_path = os.path.join(upload_folder, letter.pdf_path)
+    abs_path = os.path.abspath(os.path.join(upload_folder, letter.pdf_path))
     if not os.path.isfile(abs_path):
         return not_found("PDF file on disk")
 
@@ -907,7 +907,7 @@ def serve_passport_image(client_id, passport_id):
     if not p or not p.image_path:
         return not_found("Passport image")
     upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
-    abs_path = os.path.join(upload_folder, p.image_path) if not os.path.isabs(p.image_path) else p.image_path
+    abs_path = os.path.abspath(os.path.join(upload_folder, p.image_path) if not os.path.isabs(p.image_path) else p.image_path)
     if not os.path.isfile(abs_path):
         return not_found("Image file")
     return send_file(abs_path)
@@ -928,7 +928,7 @@ def serve_eid_image(client_id, eid_id):
     if not e or not e.image_path:
         return not_found("Emirates ID image")
     upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
-    abs_path = os.path.join(upload_folder, e.image_path) if not os.path.isabs(e.image_path) else e.image_path
+    abs_path = os.path.abspath(os.path.join(upload_folder, e.image_path) if not os.path.isabs(e.image_path) else e.image_path)
     if not os.path.isfile(abs_path):
         return not_found("Image file")
     return send_file(abs_path)
@@ -949,7 +949,7 @@ def serve_document_file(client_id, document_id):
     if not d or not d.file_path:
         return not_found("Document")
     upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
-    abs_path = os.path.join(upload_folder, d.file_path) if not os.path.isabs(d.file_path) else d.file_path
+    abs_path = os.path.abspath(os.path.join(upload_folder, d.file_path) if not os.path.isabs(d.file_path) else d.file_path)
     if not os.path.isfile(abs_path):
         return not_found("Document file")
     return send_file(abs_path)
@@ -986,7 +986,7 @@ def send_letter_for_signature(client_id):
         return error("Generate the engagement letter PDF first.")
 
     upload_folder = current_app.config["UPLOAD_FOLDER"]
-    abs_path      = os.path.join(upload_folder, letter.pdf_path)
+    abs_path      = os.path.abspath(os.path.join(upload_folder, letter.pdf_path))
     if not os.path.isfile(abs_path):
         return error("PDF file not found on disk. Please regenerate.")
 
