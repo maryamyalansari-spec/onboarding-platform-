@@ -362,6 +362,21 @@ def case_detail_data(client_id):
         .first()
     )
 
+    # Auto-run conflict check if passports uploaded but no result yet
+    if client.passports and not conflict:
+        try:
+            from utils.conflict_check import run_conflict_check
+            run_conflict_check(client_id)
+            conflict = (
+                ConflictResult.query
+                .filter_by(client_id=client_id)
+                .order_by(ConflictResult.confidence_score.desc())
+                .first()
+            )
+        except Exception as _ce:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"Auto-conflict check failed: {_ce}")
+
     # Latest AI brief
     brief = (
         AIBrief.query
@@ -394,11 +409,16 @@ def case_detail_data(client_id):
                 "nationality":     p.nationality,
                 "date_of_birth":   p.date_of_birth,
                 "expiry_date":     p.expiry_date,
+                "image_path":      p.image_path,
             }
             for p in client.passports
         ],
         "emirates_ids": [
-            {"id_record_id": e.id_record_id, "id_number": e.id_number}
+            {
+                "id_record_id": e.id_record_id,
+                "id_number":    e.id_number,
+                "image_path":   e.image_path,
+            }
             for e in client.emirates_ids
         ],
         "statements": [
@@ -414,6 +434,7 @@ def case_detail_data(client_id):
             {
                 "document_id":    d.document_id,
                 "saved_filename": d.saved_filename,
+                "file_path":      d.file_path,
                 "file_type":      d.file_type.value,
                 "uploaded_at":    d.uploaded_at.isoformat() if d.uploaded_at else None,
             }
@@ -868,6 +889,70 @@ def download_engagement_letter(client_id):
 
     safe_name = f"EngagementLetter_{client.reference_id}.pdf"
     return send_file(abs_path, as_attachment=True, download_name=safe_name, mimetype="application/pdf")
+
+
+# ── Serve uploaded files (passports, IDs, documents) ─────
+@admin_bp.route("/clients/<client_id>/passport/<passport_id>/image")
+@login_required
+def serve_passport_image(client_id, passport_id):
+    """Serve a passport image for admin viewing."""
+    import os
+    from flask import current_app, send_file
+    from models import Passport
+    firm_id = get_current_firm_id()
+    client = Client.query.filter_by(client_id=client_id, firm_id=firm_id).first()
+    if not client:
+        return not_found("Client")
+    p = Passport.query.filter_by(passport_id=passport_id, client_id=client_id).first()
+    if not p or not p.image_path:
+        return not_found("Passport image")
+    upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
+    abs_path = os.path.join(upload_folder, p.image_path) if not os.path.isabs(p.image_path) else p.image_path
+    if not os.path.isfile(abs_path):
+        return not_found("Image file")
+    return send_file(abs_path)
+
+
+@admin_bp.route("/clients/<client_id>/emiratesid/<eid_id>/image")
+@login_required
+def serve_eid_image(client_id, eid_id):
+    """Serve an Emirates ID image for admin viewing."""
+    import os
+    from flask import current_app, send_file
+    from models import EmiratesID
+    firm_id = get_current_firm_id()
+    client = Client.query.filter_by(client_id=client_id, firm_id=firm_id).first()
+    if not client:
+        return not_found("Client")
+    e = EmiratesID.query.filter_by(id_record_id=eid_id, client_id=client_id).first()
+    if not e or not e.image_path:
+        return not_found("Emirates ID image")
+    upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
+    abs_path = os.path.join(upload_folder, e.image_path) if not os.path.isabs(e.image_path) else e.image_path
+    if not os.path.isfile(abs_path):
+        return not_found("Image file")
+    return send_file(abs_path)
+
+
+@admin_bp.route("/clients/<client_id>/document/<document_id>/file")
+@login_required
+def serve_document_file(client_id, document_id):
+    """Serve an uploaded document for admin viewing."""
+    import os
+    from flask import current_app, send_file
+    from models import Document
+    firm_id = get_current_firm_id()
+    client = Client.query.filter_by(client_id=client_id, firm_id=firm_id).first()
+    if not client:
+        return not_found("Client")
+    d = Document.query.filter_by(document_id=document_id, client_id=client_id).first()
+    if not d or not d.file_path:
+        return not_found("Document")
+    upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
+    abs_path = os.path.join(upload_folder, d.file_path) if not os.path.isabs(d.file_path) else d.file_path
+    if not os.path.isfile(abs_path):
+        return not_found("Document file")
+    return send_file(abs_path)
 
 
 # ── DocuSeal: send engagement letter for signature ────────

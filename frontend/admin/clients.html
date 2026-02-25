@@ -256,24 +256,24 @@ async function approveClient(clientId) {
   if (!confirm('Approve this client to continue their intake?')) return;
   const r = await fetch(`/admin/clients/${clientId}/status`, {
     method: 'PUT',
-    headers: {'Content-Type':'application/json'},
+    headers: {'Content-Type':'application/json', 'Accept':'application/json'},
     body: JSON.stringify({ status: 'context_collection' }),
   });
   const d = await r.json();
-  if (d.ok) loadClients();
-  else alert('Failed: ' + d.message);
+  if (d.success) loadClients();
+  else alert('Failed: ' + (d.error || d.message));
 }
 
 async function rejectClient(clientId) {
   if (!confirm('Reject this client?')) return;
   const r = await fetch(`/admin/clients/${clientId}/status`, {
     method: 'PUT',
-    headers: {'Content-Type':'application/json'},
+    headers: {'Content-Type':'application/json', 'Accept':'application/json'},
     body: JSON.stringify({ status: 'rejected' }),
   });
   const d = await r.json();
-  if (d.ok) loadClients();
-  else alert('Failed: ' + d.message);
+  if (d.success) loadClients();
+  else alert('Failed: ' + (d.error || d.message));
 }
 
 function fmtDate(s) {

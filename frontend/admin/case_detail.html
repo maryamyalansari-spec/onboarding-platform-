@@ -672,9 +672,12 @@
   /* ── Load data ──────────────────────────────────────────── */
   async function loadCase() {
     try {
-      const resp = await fetch(`/admin/clients/${CLIENT_ID}/data`);
+      const resp = await fetch(`/admin/clients/${CLIENT_ID}/data`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (resp.status === 401 || resp.redirected) { window.location.href = '/auth/login'; return; }
       const json = await resp.json();
-      if (!resp.ok || !json.ok) {
+      if (!resp.ok || !json.success) {
         document.getElementById("loading-state").textContent = "Failed to load case.";
         return;
       }
@@ -826,14 +829,25 @@
   function renderDocuments(docs) {
     const el = document.getElementById("documents-list");
     if (!docs || !docs.length) { el.innerHTML = '<div class="empty-note">No documents uploaded yet.</div>'; return; }
+    const isImage = fn => /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(fn || "");
     el.innerHTML = `<div class="info-card" style="padding-top:0.5rem;">` +
-      docs.map(d => `
-        <div class="doc-row">
-          <span class="doc-icon">📄</span>
-          <span class="doc-name">${escHtml(d.saved_filename)}</span>
-          <span class="doc-type badge badge-muted">${escHtml(d.file_type)}</span>
-          <span style="font-size:0.68rem;color:var(--text-muted);">${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString("en-GB") : ""}</span>
-        </div>`).join("") + `</div>`;
+      docs.map(d => {
+        const imgUrl = `/admin/clients/${CLIENT_ID}/document/${d.document_id}/file`;
+        const preview = isImage(d.saved_filename)
+          ? `<a href="${imgUrl}" target="_blank" style="flex-shrink:0;">
+               <img src="${imgUrl}" alt="doc"
+                 style="width:48px;height:48px;object-fit:cover;border-radius:3px;border:1px solid var(--border);" />
+             </a>`
+          : `<span class="doc-icon" style="flex-shrink:0;">📄</span>`;
+        return `
+          <div class="doc-row">
+            ${preview}
+            <span class="doc-name">${escHtml(d.saved_filename)}</span>
+            <span class="doc-type badge badge-muted">${escHtml(d.file_type)}</span>
+            <a href="${imgUrl}" target="_blank" style="font-size:0.68rem;color:var(--blue);white-space:nowrap;">View ↗</a>
+            <span style="font-size:0.68rem;color:var(--text-muted);">${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString("en-GB") : ""}</span>
+          </div>`;
+      }).join("") + `</div>`;
   }
 
   function renderIdentity(passports, eids) {
@@ -841,21 +855,54 @@
     if (!passports || !passports.length) {
       pEl.innerHTML = '<div class="empty-note">No passports uploaded yet.</div>';
     } else {
-      pEl.innerHTML = passports.map(p => `
-        <div class="passport-card">
-          <div class="info-card-title">Passport</div>
-          ${p.passport_number ? `<div class="info-row"><span class="info-label">Number</span><span class="info-value" style="font-family:monospace;">${escHtml(p.passport_number)}</span></div>` : ""}
-          ${p.nationality ? `<div class="info-row"><span class="info-label">Nationality</span><span class="info-value">${escHtml(p.nationality)}</span></div>` : ""}
-          ${p.date_of_birth ? `<div class="info-row"><span class="info-label">Date of birth</span><span class="info-value">${escHtml(p.date_of_birth)}</span></div>` : ""}
-          ${p.expiry_date ? `<div class="info-row"><span class="info-label">Expiry</span><span class="info-value">${escHtml(p.expiry_date)}</span></div>` : ""}
-          ${!p.passport_number ? '<div class="empty-note" style="margin:0.3rem 0;">OCR pending…</div>' : ""}
-        </div>`).join("");
+      pEl.innerHTML = passports.map(p => {
+        const imgUrl = `/admin/clients/${CLIENT_ID}/passport/${p.passport_id}/image`;
+        return `
+          <div class="passport-card">
+            <div class="info-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+              Passport
+              <a href="${imgUrl}" target="_blank"
+                 style="font-family:monospace;font-size:0.6rem;color:var(--blue);letter-spacing:0.08em;">
+                View Full ↗
+              </a>
+            </div>
+            <div style="margin-bottom:0.75rem;">
+              <a href="${imgUrl}" target="_blank">
+                <img src="${imgUrl}" alt="Passport"
+                  style="width:100%;max-width:340px;border-radius:3px;border:1px solid var(--border);display:block;" />
+              </a>
+            </div>
+            ${p.passport_number ? `<div class="info-row"><span class="info-label">Number</span><span class="info-value" style="font-family:monospace;">${escHtml(p.passport_number)}</span></div>` : ""}
+            ${p.nationality ? `<div class="info-row"><span class="info-label">Nationality</span><span class="info-value">${escHtml(p.nationality)}</span></div>` : ""}
+            ${p.date_of_birth ? `<div class="info-row"><span class="info-label">Date of birth</span><span class="info-value">${escHtml(p.date_of_birth)}</span></div>` : ""}
+            ${p.expiry_date ? `<div class="info-row"><span class="info-label">Expiry</span><span class="info-value">${escHtml(p.expiry_date)}</span></div>` : ""}
+            ${!p.passport_number ? '<div class="empty-note" style="margin:0.3rem 0;">OCR pending — run Re-OCR to extract data</div>' : ""}
+          </div>`;
+      }).join("");
     }
 
     const eEl = document.getElementById("emiratesid-list");
-    if (eids && eids.length && eids[0].id_number) {
-      eEl.innerHTML = `<div class="passport-card"><div class="info-card-title">Emirates ID</div>
-        <div class="info-row"><span class="info-label">Number</span><span class="info-value" style="font-family:monospace;">${escHtml(eids[0].id_number)}</span></div></div>`;
+    if (eids && eids.length) {
+      eEl.innerHTML = eids.map(e => {
+        const imgUrl = `/admin/clients/${CLIENT_ID}/emiratesid/${e.id_record_id}/image`;
+        return `
+          <div class="passport-card">
+            <div class="info-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+              Emirates ID
+              <a href="${imgUrl}" target="_blank"
+                 style="font-family:monospace;font-size:0.6rem;color:var(--blue);letter-spacing:0.08em;">
+                View Full ↗
+              </a>
+            </div>
+            <div style="margin-bottom:0.75rem;">
+              <a href="${imgUrl}" target="_blank">
+                <img src="${imgUrl}" alt="Emirates ID"
+                  style="width:100%;max-width:340px;border-radius:3px;border:1px solid var(--border);display:block;" />
+              </a>
+            </div>
+            ${e.id_number ? `<div class="info-row"><span class="info-label">Number</span><span class="info-value" style="font-family:monospace;">${escHtml(e.id_number)}</span></div>` : ""}
+          </div>`;
+      }).join("");
     }
   }
 
@@ -889,10 +936,13 @@
 
   async function triggerConflict() {
     if (!confirm("Re-run conflict check for this client?")) return;
-    const r = await fetch(`/api/conflict/check/${CLIENT_ID}`, { method: "POST" });
+    const r = await fetch(`/api/conflict/check/${CLIENT_ID}`, {
+      method: "POST",
+      headers: { 'Accept': 'application/json' }
+    });
     const d = await r.json();
-    alert(d.ok ? "Conflict check queued." : "Failed: " + d.message);
-    setTimeout(loadCase, 3000);
+    if (!d.success) { alert("Failed: " + (d.error || d.message)); return; }
+    setTimeout(loadCase, 1500);
   }
 
   async function runAnalysis() {
@@ -946,8 +996,8 @@
       body: JSON.stringify({ decision: _conflictDecisionValue, reason }),
     });
     const d = await r.json();
-    if (d.ok) { closeConflictModal(); loadCase(); }
-    else alert("Failed: " + d.message);
+    if (d.success) { closeConflictModal(); loadCase(); }
+    else alert("Failed: " + (d.error || d.message));
   }
 
   async function proceedToPortal() {
@@ -969,12 +1019,12 @@
     document.getElementById("status-menu").style.display = "none";
     const r = await fetch(`/admin/clients/${CLIENT_ID}/status`, {
       method: "PUT",
-      headers: {"Content-Type":"application/json"},
+      headers: {"Content-Type":"application/json", "Accept":"application/json"},
       body: JSON.stringify({ status }),
     });
     const d = await r.json();
-    if (d.ok) loadCase();
-    else alert("Failed: " + d.message);
+    if (d.success) loadCase();
+    else alert("Failed: " + (d.error || d.message));
   }
 
   function openRequestDocModal() {
@@ -992,8 +1042,8 @@
       body: JSON.stringify({ document_type: doc_type, notes }),
     });
     const d = await r.json();
-    if (d.ok) { closeReqDocModal(); loadCase(); }
-    else alert("Failed: " + d.message);
+    if (d.success) { closeReqDocModal(); loadCase(); }
+    else alert("Failed: " + (d.error || d.message));
   }
 
   async function openCalendlyLink() {
@@ -1013,7 +1063,7 @@
       body: JSON.stringify({ notes }),
     });
     const d = await r.json();
-    if (d.ok) {
+    if (d.success) {
       const msg = document.getElementById("notes-saved-msg");
       msg.style.display = "inline";
       setTimeout(() => msg.style.display = "none", 2500);
