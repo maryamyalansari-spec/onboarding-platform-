@@ -239,8 +239,8 @@ async function submitKyc() {
       body: JSON.stringify(body),
     });
     const data = await resp.json();
-    if (!resp.ok || !data.ok) {
-      showBanner("error", data.message || "Failed to submit. Please try again.");
+    if (!resp.ok || !data.success) {
+      showBanner("error", data.error || "Failed to submit. Please try again.");
       return;
     }
     showBanner("success", "✓ KYC submitted. Redirecting…");

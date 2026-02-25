@@ -458,7 +458,7 @@ class AuditLog(db.Model):
     record_type = Column(String(100), nullable=True)            # e.g. "client", "document"
     record_id = Column(String(36), nullable=True)
     timestamp = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-    metadata = Column(JSONB, nullable=True)                     # extra structured detail
+    extra = Column("metadata", JSONB, nullable=True)            # extra structured detail
 
     firm = relationship("LawFirm", back_populates="audit_logs")
     performed_by_user = relationship("User", back_populates="audit_logs")

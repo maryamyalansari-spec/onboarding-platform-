@@ -114,12 +114,12 @@ def seed_demo_firm(conn):
     password_hash = generate_password_hash("admin123")
 
     cur.execute(
-        "INSERT INTO law_firms (firm_id, firm_name) VALUES (%s, %s);",
+        "INSERT INTO law_firms (firm_id, firm_name, created_at) VALUES (%s, %s, NOW());",
         (firm_id, "Demo Firm")
     )
     cur.execute(
-        """INSERT INTO users (user_id, firm_id, name, email, password_hash, role)
-           VALUES (%s, %s, %s, %s, %s, %s);""",
+        """INSERT INTO users (user_id, firm_id, name, email, password_hash, role, is_active, created_at)
+           VALUES (%s, %s, %s, %s, %s, %s, TRUE, NOW());""",
         (user_id, firm_id, "Demo Admin", "admin@demo.ae", password_hash, "admin")
     )
     conn.commit()
@@ -153,8 +153,12 @@ def main():
     conn = psycopg2.connect(db_url)
 
     try:
-        patch_vector_column(conn)
-        create_vector_index(conn)
+        try:
+            patch_vector_column(conn)
+            create_vector_index(conn)
+        except Exception as e:
+            conn.rollback()
+            print(f"[DB] Skipping vector setup (pgvector not installed): {e}")
         seed_demo_firm(conn)
     finally:
         conn.close()

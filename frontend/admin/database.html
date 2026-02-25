@@ -1,0 +1,129 @@
+{% extends "admin/_base.html" %}
+{% block title %}Database{% endblock %}
+{% block page_title %}Database{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Conflict Database</span>
+  </div>
+  <button class="btn btn-secondary btn-sm" onclick="loadDatabase()">Refresh</button>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title">Upload Conflict Index</span>
+  </div>
+  <p class="text-muted" style="font-size:0.82rem;margin-bottom:1rem">
+    Upload a CSV with columns: <span class="mono">name, matter_type, reference</span> (optional: <span class="mono">notes</span>).
+    These records are used for conflict checking against new clients.
+  </p>
+  <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
+    <input type="file" id="csvFile" accept=".csv" class="form-input" style="max-width:320px" />
+    <button class="btn btn-primary btn-sm" onclick="uploadCSV()">Upload</button>
+  </div>
+  <div id="uploadMsg" style="display:none;margin-top:0.75rem"></div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Existing Records</span>
+    <span class="mono text-muted" id="recordCount" style="font-size:0.7rem"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Matter Type</th>
+          <th>Reference</th>
+          <th>Notes</th>
+          <th>Added</th>
+        </tr>
+      </thead>
+      <tbody id="dbTableBody">
+        <tr><td colspan="5">
+          <div class="empty-state" style="padding:2rem 0">
+            <div class="spinner" style="margin:0 auto 0.75rem"></div>
+            <div class="empty-state-text">Loading records…</div>
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function loadDatabase() {
+  try {
+    const res  = await fetch('/admin/database-data');
+    const data = await res.json();
+    if (!data.success) throw new Error();
+    const records = data.data.records || [];
+    document.getElementById('recordCount').textContent = `${records.length} records`;
+    const tbody = document.getElementById('dbTableBody');
+    if (!records.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state" style="padding:2rem 0">
+        <div class="empty-state-title">No records</div>
+        <div class="empty-state-text">Upload a CSV to populate the conflict index.</div>
+        </div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = records.map(r => `
+      <tr>
+        <td><span class="td-name">${esc(r.name)}</span></td>
+        <td><span class="text-muted">${esc(r.matter_type || '—')}</span></td>
+        <td><span class="mono text-muted">${esc(r.reference || '—')}</span></td>
+        <td><span class="text-muted">${esc(r.notes || '—')}</span></td>
+        <td><span class="mono text-muted">${fmtDate(r.created_at)}</span></td>
+      </tr>`).join('');
+  } catch {
+    document.getElementById('dbTableBody').innerHTML =
+      `<tr><td colspan="5"><div class="empty-state" style="padding:2rem 0">
+        <div class="empty-state-text">Could not load records.</div></div></td></tr>`;
+  }
+}
+
+async function uploadCSV() {
+  const file = document.getElementById('csvFile').files[0];
+  const msg  = document.getElementById('uploadMsg');
+  if (!file) { showMsg('Please select a CSV file.', 'error'); return; }
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    showMsg('Uploading…', 'info');
+    const res  = await fetch('/admin/database-upload', { method:'POST', body: form });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showMsg(`Uploaded ${data.data?.inserted ?? ''} records successfully.`, 'success');
+      loadDatabase();
+    } else {
+      showMsg(data.error || 'Upload failed.', 'error');
+    }
+  } catch {
+    showMsg('Network error.', 'error');
+  }
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('uploadMsg');
+  el.style.display = 'block';
+  el.className = type === 'error' ? 'alert alert-red' : type === 'success' ? 'alert alert-green' : 'alert alert-blue';
+  el.textContent = text;
+}
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.addEventListener('DOMContentLoaded', loadDatabase);
+</script>
+{% endblock %}

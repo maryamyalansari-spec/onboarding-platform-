@@ -1,0 +1,131 @@
+{% extends "admin/_base.html" %}
+{% block title %}Conflict Results{% endblock %}
+{% block page_title %}Conflict Results{% endblock %}
+
+{% block extra_css %}
+<style>
+  .match-exact  { background:var(--red-bg);    color:var(--red);    border:1px solid var(--red);    }
+  .match-strong { background:var(--orange-bg); color:var(--orange); border:1px solid var(--orange); }
+  .match-soft   { background:var(--blue-bg);   color:var(--blue);   border:1px solid var(--blue);   }
+  .match-none   { background:var(--card);      color:var(--text-muted); border:1px solid var(--border); }
+  .decision-approve { background:var(--green-bg); color:var(--green); border:1px solid var(--green); }
+  .decision-reject  { background:var(--red-bg);   color:var(--red);   border:1px solid var(--red);   }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Conflict Results</span>
+  </div>
+  <button class="btn btn-secondary btn-sm" onclick="loadConflicts()">Refresh</button>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
+    <button class="filter-btn active" onclick="setFilter('all',this)" style="font-family:monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;padding:0.3rem 0.7rem;border-radius:3px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer">All</button>
+    <button class="filter-btn" onclick="setFilter('exact',this)" style="font-family:monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;padding:0.3rem 0.7rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Exact</button>
+    <button class="filter-btn" onclick="setFilter('strong',this)" style="font-family:monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;padding:0.3rem 0.7rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Strong</button>
+    <button class="filter-btn" onclick="setFilter('soft',this)" style="font-family:monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;padding:0.3rem 0.7rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Soft</button>
+    <button class="filter-btn" onclick="setFilter('pending',this)" style="font-family:monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;padding:0.3rem 0.7rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Pending Decision</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="conflictTable">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Match Type</th>
+          <th>Score</th>
+          <th>Matched Name</th>
+          <th>Decision</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="conflictTableBody">
+        <tr><td colspan="7">
+          <div class="empty-state" style="padding:2rem 0">
+            <div class="spinner" style="margin:0 auto 0.75rem"></div>
+            <div class="empty-state-text">Loading conflict data…</div>
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allConflicts = [];
+let currentFilter = 'all';
+
+async function loadConflicts() {
+  try {
+    const res  = await fetch('/admin/conflict-list');
+    const data = await res.json();
+    if (!data.success) throw new Error();
+    allConflicts = data.data.conflicts || [];
+    renderTable();
+  } catch {
+    document.getElementById('conflictTableBody').innerHTML =
+      `<tr><td colspan="7"><div class="empty-state" style="padding:2rem 0">
+        <div class="empty-state-text">Could not load conflict data.</div></div></td></tr>`;
+  }
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.style.background = 'transparent'; b.style.color = 'var(--text-muted)';
+  });
+  btn.style.background = 'var(--card)'; btn.style.color = 'var(--text)';
+  renderTable();
+}
+
+function renderTable() {
+  let list = allConflicts;
+  if (currentFilter === 'pending')    list = list.filter(c => !c.admin_decision);
+  else if (currentFilter !== 'all')   list = list.filter(c => c.match_type === currentFilter);
+
+  const tbody = document.getElementById('conflictTableBody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding:2rem 0">
+      <div class="empty-state-title">No conflicts found</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr onclick="window.location='/admin/clients/${c.client_id}'" style="cursor:pointer">
+      <td>
+        <div class="td-name">${esc(c.full_name || '—')}</div>
+        <div class="td-ref">${esc(c.reference_id || '')}</div>
+      </td>
+      <td><span class="badge match-${c.match_type || 'none'}">${c.match_type || 'none'}</span></td>
+      <td><span class="mono">${c.confidence_score != null ? Math.round(c.confidence_score) : '—'}</span></td>
+      <td><span class="text-muted">${esc(c.matched_name || '—')}</span></td>
+      <td>${c.admin_decision
+        ? `<span class="badge decision-${c.admin_decision}">${c.admin_decision}</span>`
+        : '<span class="badge">Pending</span>'}</td>
+      <td><span class="mono text-muted">${fmtDate(c.checked_at)}</span></td>
+      <td class="td-actions">
+        <a href="/admin/clients/${c.client_id}" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">Review</a>
+      </td>
+    </tr>`).join('');
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Check for ?filter=pending in URL
+const urlFilter = new URLSearchParams(window.location.search).get('filter');
+if (urlFilter) currentFilter = urlFilter;
+
+document.addEventListener('DOMContentLoaded', loadConflicts);
+</script>
+{% endblock %}

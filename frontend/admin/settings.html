@@ -1,0 +1,238 @@
+{% extends "admin/_base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+  .settings-section { margin-bottom: 1.5rem; }
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 640px) { .settings-grid { grid-template-columns: 1fr; } }
+  .config-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.65rem 0; border-bottom: 1px solid var(--border);
+    font-size: 0.82rem;
+  }
+  .config-row:last-child { border-bottom: none; }
+  .config-key { color: var(--text-muted); font-family: monospace; font-size: 0.75rem; }
+  .config-val { font-family: monospace; font-size: 0.75rem; color: var(--text); }
+  .badge-set   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green);  }
+  .badge-unset { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange); }
+  .section-note {
+    font-size: 0.78rem; color: var(--text-muted);
+    margin-bottom: 1rem; line-height: 1.5;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Settings</span>
+  </div>
+  <button class="btn btn-secondary btn-sm" onclick="loadSettings()">Refresh</button>
+</div>
+
+<!-- ── Firm Info ─────────────────────────────────────────── -->
+<div class="card settings-section">
+  <div class="card-header">
+    <span class="card-title">Firm</span>
+  </div>
+  <div class="config-row">
+    <span class="config-key">firm_name</span>
+    <span class="config-val" id="firmName">—</span>
+  </div>
+  <div class="config-row">
+    <span class="config-key">auto_approve_clear_conflicts</span>
+    <span id="autoApprove">—</span>
+  </div>
+</div>
+
+<!-- ── WhatsApp / Twilio ─────────────────────────────────── -->
+<div class="card settings-section" id="whatsapp">
+  <div class="card-header">
+    <span class="card-title">WhatsApp (Twilio)</span>
+  </div>
+  <p class="section-note">
+    Configure these values in your <span class="mono">.env</span> file.
+    Twilio credentials are required for sending WhatsApp messages to clients.
+  </p>
+  <div id="twilioRows">
+    <div class="config-row">
+      <span class="config-key">TWILIO_ACCOUNT_SID</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">TWILIO_AUTH_TOKEN</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">TWILIO_WHATSAPP_NUMBER</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── API Keys ──────────────────────────────────────────── -->
+<div class="card settings-section" id="api-keys">
+  <div class="card-header">
+    <span class="card-title">API Keys &amp; Services</span>
+  </div>
+  <p class="section-note">
+    All keys are loaded from your <span class="mono">.env</span> file.
+    Green means the key is set; orange means it is missing or empty.
+  </p>
+  <div id="apiRows">
+    <div class="config-row">
+      <span class="config-key">OPENAI_API_KEY</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">SENDGRID_API_KEY</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">SENDGRID_FROM_EMAIL</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">CALENDLY_API_KEY</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">CALENDLY_LINK</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">DOCUSEAL_URL</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">DOCUSEAL_API_KEY</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Portal & Security ─────────────────────────────────── -->
+<div class="card settings-section">
+  <div class="card-header">
+    <span class="card-title">Portal &amp; Security</span>
+  </div>
+  <div id="portalRows">
+    <div class="config-row">
+      <span class="config-key">PORTAL_BASE_URL</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">ENCRYPTION_KEY</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+    <div class="config-row">
+      <span class="config-key">TOKEN_EXPIRY_DAYS</span>
+      <div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function loadSettings() {
+  try {
+    const res  = await fetch('/admin/settings-data');
+    const data = await res.json();
+    if (!data.success) throw new Error();
+    const d = data.data;
+
+    document.getElementById('firmName').textContent =
+      d.firm_name || '—';
+    document.getElementById('autoApprove').innerHTML =
+      d.auto_approve_clear_conflicts
+        ? '<span class="badge badge-green">Enabled</span>'
+        : '<span class="badge">Disabled</span>';
+  } catch {
+    document.getElementById('firmName').textContent = 'Could not load';
+  }
+}
+
+async function loadConfigStatus() {
+  try {
+    const res  = await fetch('/admin/settings-config-status');
+    const data = await res.json();
+    if (!data.success) throw new Error();
+    const cfg = data.data;
+
+    function badge(val) {
+      if (val && val !== 'unset') {
+        return `<span class="badge badge-set">Set</span>`;
+      }
+      return `<span class="badge badge-unset">Not set</span>`;
+    }
+    function valBadge(val) {
+      if (!val || val === 'unset') return `<span class="badge badge-unset">Not set</span>`;
+      return `<span class="config-val">${esc(val)}</span>`;
+    }
+
+    document.getElementById('twilioRows').innerHTML = `
+      <div class="config-row"><span class="config-key">TWILIO_ACCOUNT_SID</span>${badge(cfg.twilio_sid)}</div>
+      <div class="config-row"><span class="config-key">TWILIO_AUTH_TOKEN</span>${badge(cfg.twilio_token)}</div>
+      <div class="config-row"><span class="config-key">TWILIO_WHATSAPP_NUMBER</span>${valBadge(cfg.twilio_number)}</div>
+    `;
+    document.getElementById('apiRows').innerHTML = `
+      <div class="config-row"><span class="config-key">OPENAI_API_KEY</span>${badge(cfg.openai_key)}</div>
+      <div class="config-row"><span class="config-key">SENDGRID_API_KEY</span>${badge(cfg.sendgrid_key)}</div>
+      <div class="config-row"><span class="config-key">SENDGRID_FROM_EMAIL</span>${valBadge(cfg.sendgrid_from)}</div>
+      <div class="config-row"><span class="config-key">CALENDLY_API_KEY</span>${badge(cfg.calendly_key)}</div>
+      <div class="config-row"><span class="config-key">CALENDLY_LINK</span>${valBadge(cfg.calendly_link)}</div>
+      <div class="config-row"><span class="config-key">DOCUSEAL_URL</span>${valBadge(cfg.docuseal_url)}</div>
+      <div class="config-row"><span class="config-key">DOCUSEAL_API_KEY</span>${badge(cfg.docuseal_key)}</div>
+    `;
+    document.getElementById('portalRows').innerHTML = `
+      <div class="config-row"><span class="config-key">PORTAL_BASE_URL</span>${valBadge(cfg.portal_url)}</div>
+      <div class="config-row"><span class="config-key">ENCRYPTION_KEY</span>${badge(cfg.encryption_key)}</div>
+      <div class="config-row"><span class="config-key">TOKEN_EXPIRY_DAYS</span>${valBadge(cfg.token_expiry_days)}</div>
+    `;
+  } catch {
+    // API endpoint not yet available — show fallback
+    const na = '<span class="text-muted" style="font-size:0.75rem">Edit .env to configure</span>';
+    document.getElementById('twilioRows').innerHTML = `
+      <div class="config-row"><span class="config-key">TWILIO_ACCOUNT_SID</span>${na}</div>
+      <div class="config-row"><span class="config-key">TWILIO_AUTH_TOKEN</span>${na}</div>
+      <div class="config-row"><span class="config-key">TWILIO_WHATSAPP_NUMBER</span>${na}</div>
+    `;
+    document.getElementById('apiRows').innerHTML = `
+      <div class="config-row"><span class="config-key">OPENAI_API_KEY</span>${na}</div>
+      <div class="config-row"><span class="config-key">SENDGRID_API_KEY</span>${na}</div>
+      <div class="config-row"><span class="config-key">SENDGRID_FROM_EMAIL</span>${na}</div>
+      <div class="config-row"><span class="config-key">CALENDLY_API_KEY</span>${na}</div>
+      <div class="config-row"><span class="config-key">CALENDLY_LINK</span>${na}</div>
+      <div class="config-row"><span class="config-key">DOCUSEAL_URL</span>${na}</div>
+      <div class="config-row"><span class="config-key">DOCUSEAL_API_KEY</span>${na}</div>
+    `;
+    document.getElementById('portalRows').innerHTML = `
+      <div class="config-row"><span class="config-key">PORTAL_BASE_URL</span>${na}</div>
+      <div class="config-row"><span class="config-key">ENCRYPTION_KEY</span>${na}</div>
+      <div class="config-row"><span class="config-key">TOKEN_EXPIRY_DAYS</span>${na}</div>
+    `;
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Scroll to anchor if present
+const hash = window.location.hash;
+if (hash) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.querySelector(hash);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  loadConfigStatus();
+});
+</script>
+{% endblock %}

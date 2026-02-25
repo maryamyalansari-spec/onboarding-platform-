@@ -6,7 +6,7 @@ Flask-Session==0.8.0
 Werkzeug==3.0.3
 
 # Database
-psycopg2-binary==2.9.9
+psycopg2-binary>=2.9.9
 SQLAlchemy==2.0.31
 pgvector==0.3.2
 alembic==1.13.2
@@ -25,7 +25,7 @@ openai==1.40.0
 # OCR
 paddlepaddle==2.6.1
 paddleocr==2.7.3
-Pillow==10.4.0
+Pillow>=10.4.0
 
 # Email
 sendgrid==6.11.0

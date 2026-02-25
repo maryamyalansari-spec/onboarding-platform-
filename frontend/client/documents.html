@@ -649,7 +649,7 @@
       });
       const data = await resp.json();
 
-      if (!resp.ok || !data.ok) {
+      if (!resp.ok || !data.success) {
         uploadArea.innerHTML = `
           <div class="checklist-uploading" style="color:var(--red)">
             Upload failed — <a href="#" onclick="resetChecklistUpload('${requestId}','${docType}');return false;"
@@ -808,7 +808,7 @@
       });
       const data = await resp.json();
 
-      if (!resp.ok || !data.ok) {
+      if (!resp.ok || !data.success) {
         card.classList.remove("uploading");
         card.classList.add("upload-error");
         card.querySelector(".file-status").textContent = "Upload failed";
@@ -914,10 +914,10 @@
       });
       const data = await resp.json();
 
-      if (!resp.ok || !data.ok) {
+      if (!resp.ok || !data.success) {
         btn.disabled = false;
         btn.textContent = "Submit Intake";
-        showError(data.message || "Submission failed. Please try again.");
+        showError(data.error || "Submission failed. Please try again.");
         return;
       }
 
